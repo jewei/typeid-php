@@ -1,0 +1,33 @@
+{
+    "name": "jewei/typeid-php",
+    "description": "PHP implementation of TypeID specification: type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs",
+    "type": "library",
+    "require": {
+        "php": "^8.2.0",
+        "ext-gmp": "*",
+        "ramsey/uuid": "^4.7"
+    },
+    "require-dev": {
+        "laravel/pint": "dev-main",
+        "pestphp/pest": "3.x-dev",
+        "symfony/var-dumper": "7.3.x-dev"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "TypeID\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Jewei Mak",
+            "email": "jewei.mak@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
