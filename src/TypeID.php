@@ -12,7 +12,7 @@ use TypeID\Exception\ValidationException;
 class TypeID
 {
     // Zero suffix used for default/empty TypeIDs
-    public const ZERO_SUFFIX = '00000000000000000000000000';
+    public const ZERO_SUFFIX = '0000000000e008000000000000';
 
     // The type prefix for this TypeID
     private string $prefix;
@@ -39,7 +39,7 @@ class TypeID
         }
 
         $this->prefix = $prefix;
-        $this->suffix = $suffix;
+        $this->suffix = $suffix === '' ? self::ZERO_SUFFIX : $suffix;
     }
 
     /**
@@ -60,16 +60,27 @@ class TypeID
      * @return self A new TypeID instance
      *
      * @throws ConstructorException If the UUID cannot be parsed
+     * @throws ValidationException If the prefix is invalid
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
+        $prefix = $prefix ?? '';
+
+        // Validate prefix first
+        if (! Validator::isValidPrefix($prefix)) {
+            throw new ValidationException("Invalid prefix: $prefix");
+        }
+
         try {
-            if (! Validator::isValidUUIDv7($uuid)) {
+            if (! Validator::isValidUuidv7($uuid)) {
                 throw new ValidationException("Invalid UUIDv7 format: $uuid");
             }
 
-            return new self($prefix ?? '', Base32::encode($uuid));
+            return new self($prefix, Base32::encode($uuid));
         } catch (Exception $e) {
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
             throw new ConstructorException('Failed to create TypeID from UUID: '.$e->getMessage(), 0, $e);
         }
     }
@@ -84,6 +95,10 @@ class TypeID
      */
     public static function fromString(string $value): self
     {
+        if (empty($value)) {
+            throw new ValidationException('TypeID string cannot be empty');
+        }
+
         $parts = Validator::parseTypeID($value);
 
         if ($parts === null) {
@@ -100,12 +115,26 @@ class TypeID
      *
      * @param  string|null  $prefix  The type prefix (default: empty string)
      * @return self A new random TypeID instance
+     *
+     * @throws ValidationException If the prefix is invalid
      */
     public static function generate(?string $prefix = null): self
     {
+        $prefix = $prefix ?? '';
+
+        // Validate prefix
+        if (! Validator::isValidPrefix($prefix)) {
+            throw new ValidationException("Invalid prefix: $prefix");
+        }
+
         $uuid = Uuid::uuid7()->toString();
 
-        return self::fromUuid($uuid, $prefix);
+        try {
+            return self::fromUuid($uuid, $prefix);
+        } catch (Exception $e) {
+            // This should not happen as we're generating a valid UUID internally
+            throw new ConstructorException('Failed to generate TypeID: '.$e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -113,10 +142,19 @@ class TypeID
      *
      * @param  string|null  $prefix  The type prefix (default: empty string)
      * @return self A new zero TypeID instance
+     *
+     * @throws ValidationException If the prefix is invalid
      */
     public static function zero(?string $prefix = null): self
     {
-        return new self($prefix ?? '', self::ZERO_SUFFIX);
+        $prefix = $prefix ?? '';
+
+        // Validate prefix
+        if (! Validator::isValidPrefix($prefix)) {
+            throw new ValidationException("Invalid prefix: $prefix");
+        }
+
+        return new self($prefix, self::ZERO_SUFFIX);
     }
 
     /**
@@ -136,7 +174,7 @@ class TypeID
      */
     public function getSuffix(): string
     {
-        return $this->suffix ?: self::ZERO_SUFFIX;
+        return $this->suffix;
     }
 
     /**
@@ -165,12 +203,15 @@ class TypeID
         try {
             $uuid = Base32::decode($this->getSuffix());
 
-            if ($uuid !== '00000000-0000-0000-0000-000000000000' && ! Validator::isValidUUIDv7($uuid)) {
+            if ($uuid !== '00000000-0000-0000-0000-000000000000' && ! Validator::isValidUuidv7($uuid)) {
                 throw new ValidationException('Decoded value is not a valid UUIDv7');
             }
 
             return $uuid;
         } catch (Exception $e) {
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
             throw new ValidationException('Failed to decode TypeID to UUID: '.$e->getMessage(), 0, $e);
         }
     }
@@ -182,7 +223,7 @@ class TypeID
      */
     public function isZero(): bool
     {
-        return $this->suffix === '' || $this->suffix === self::ZERO_SUFFIX;
+        return $this->suffix === self::ZERO_SUFFIX;
     }
 
     /**

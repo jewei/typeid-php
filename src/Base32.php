@@ -13,6 +13,11 @@ class Base32
     private const ALPHABET_MAP = [
         // Accept both upper and lower case, and map ambiguous chars
         'O' => '0', 'o' => '0', 'I' => '1', 'i' => '1', 'L' => '1', 'l' => '1',
+        // Map all uppercase letters to lowercase
+        'A' => 'a', 'B' => 'b', 'C' => 'c', 'D' => 'd', 'E' => 'e', 'F' => 'f', 'G' => 'g',
+        'H' => 'h', 'J' => 'j', 'K' => 'k', 'M' => 'm', 'N' => 'n', 'P' => 'p', 'Q' => 'q',
+        'R' => 'r', 'S' => 's', 'T' => 't', 'V' => 'v', 'W' => 'w', 'X' => 'x', 'Y' => 'y',
+        'Z' => 'z',
     ];
 
     /**
@@ -27,7 +32,7 @@ class Base32
         }
 
         // Validate UUIDv7 structure when encoding
-        if (! Validator::isValidUUIDv7($uuid)) {
+        if (! Validator::isValidUuidv7($uuid)) {
             throw new InvalidArgumentException('Invalid UUIDv7 format: version bits (48-51) must be 0111 and variant bits (64-65) must be 10');
         }
 
@@ -60,10 +65,8 @@ class Base32
      */
     public static function decode(string $base32): string
     {
-        $base32 = strtolower($base32);
-
-        // Map ambiguous characters to canonical ones
-        $base32 = strtr($base32, self::ALPHABET_MAP);
+        // Map ambiguous characters to canonical ones and convert to lowercase
+        $base32 = strtr(strtolower($base32), self::ALPHABET_MAP);
 
         if (strlen($base32) !== 26) {
             throw new InvalidArgumentException('TypeID base32 string must be 26 chars');
@@ -115,7 +118,7 @@ class Base32
         );
 
         // Validate the UUID has UUIDv7 structure unless it is the zero UUID
-        if ($uuid !== '00000000-0000-0000-0000-000000000000' && ! Validator::isValidUUIDv7($uuid)) {
+        if ($uuid !== '00000000-0000-0000-0000-000000000000' && ! Validator::isValidUuidv7($uuid)) {
             throw new InvalidArgumentException('Decoded UUID does not have valid UUIDv7 format: version bits (48-51) must be 0111 and variant bits (64-65) must be 10');
         }
 
