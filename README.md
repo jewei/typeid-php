@@ -26,16 +26,17 @@ composer require jewei/typeid-php
 use TypeID\TypeID;
 
 // Generate a new TypeID
-$id = TypeID::create('user');
-echo $id; // user_01h455vb4pex5vsknk084sn02q
+$typeId = TypeID::create('user');
+echo $typeId; // user_01h455vb4pex5vsknk084sn02q
 
 // Parse a TypeID string
-$id = TypeID::fromString('user_01h455vb4pex5vsknk084sn02q');
-echo $id->getPrefix(); // user
-echo $id->toUuid();    // UUID in standard format
+$typeId = TypeID::fromString('user_01h455vb4pex5vsknk084sn02q');
+echo $typeId->getPrefix(); // user
+echo $typeId->getSuffix(); // 01h455vb4pex5vsknk084sn02q
+echo $typeId->toUuid();    // 01890a5d-ac96-774b-bcce-b302099a8057
 
 // Convert UUID to TypeID
 $uuid = '0188bac7-4afa-78aa-bc3b-bd1eef28d881';
-$id = TypeID::fromUuid('post', $uuid);
-echo $id; // post_01h2xcejqtf2nbrexx3vqjhp41
+$typeId = TypeID::fromUuid('post', $uuid);
+echo $typeId; // post_01h2xcejqtf2nbrexx3vqjhp41
 ```
