@@ -59,8 +59,8 @@ class TypeID
      * @param  string|null  $prefix  The type prefix (default: empty string)
      * @return self A new TypeID instance
      *
-     * @throws ConstructorException If the UUID cannot be parsed
-     * @throws ValidationException If the prefix is invalid
+     * @throws ValidationException If the UUID or prefix is invalid
+     * @throws ConstructorException If conversion from UUID to TypeID fails
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
@@ -79,21 +79,14 @@ class TypeID
      * @param  string  $value  The TypeID string to parse
      * @return self A new TypeID instance
      *
-     * @throws ValidationException If the string is not a valid TypeID
+     * @throws ValidationException If the string is empty
+     * @throws ConstructorException If TypeID construction fails
      */
     public static function fromString(string $value): self
     {
-        if (empty($value)) {
-            throw new ValidationException('TypeID string cannot be empty');
-        }
-
-        $parts = Validator::parseTypeID($value);
-
-        if ($parts === null) {
-            throw new ValidationException("Invalid TypeID format: $value");
-        }
-
         try {
+            $parts = Validator::parseTypeID($value);
+
             return new self($parts[0], $parts[1]);
         } catch (ValidationException $e) {
             throw $e;
@@ -109,6 +102,7 @@ class TypeID
      * @return self A new random TypeID instance
      *
      * @throws ValidationException If the prefix is invalid
+     * @throws ConstructorException If TypeID generation fails
      */
     public static function generate(?string $prefix = null): self
     {
@@ -131,14 +125,13 @@ class TypeID
      */
     public static function zero(?string $prefix = null): self
     {
-        $prefix = $prefix ?? '';
-
-        // Validate prefix
-        if (! Validator::isValidPrefix($prefix)) {
-            throw new ValidationException("Invalid prefix: $prefix");
+        try {
+            return new self($prefix ?? '', self::ZERO_SUFFIX);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw new ConstructorException('Failed to create zero TypeID: '.$e->getMessage(), 0, $e);
         }
-
-        return new self($prefix, self::ZERO_SUFFIX);
     }
 
     /**
@@ -181,7 +174,6 @@ class TypeID
      * @return string The UUID string
      *
      * @throws ValidationException If the suffix cannot be decoded to a valid UUID
-     * @throws InvalidArgumentException If the suffix is not a valid base32 string
      */
     public function toUuid(): string
     {

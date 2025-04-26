@@ -4,22 +4,33 @@ declare(strict_types=1);
 
 namespace TypeID;
 
+use InvalidArgumentException;
+
 class Validator
 {
-    // Maximum length of the prefix
+    /**
+     * Maximum length of the TypeID prefix (63 characters).
+     */
     private const MAX_PREFIX_LENGTH = 63;
 
-    // Regex for valid prefix characters (lowercase a-z and underscores)
+    /**
+     * Regex pattern for validating prefix characters (lowercase a-z and underscores).
+     */
     private const PREFIX_PATTERN = '/^([a-z]([a-z_]{0,61}[a-z])?)?$/';
 
-    // The suffix must be exactly 26 characters long
+    /**
+     * The TypeID suffix must be exactly 26 characters long.
+     */
     private const SUFFIX_LENGTH = 26;
 
-    // Pattern for valid characters in the base32 suffix – Crockford's alphabet
-    // (lower-case, excluding the ambiguous characters i, l, o)
+    /**
+     * Regex pattern for validating base32 suffix characters (Crockford's alphabet).
+     */
     private const SUFFIX_PATTERN = '/^[0123456789abcdefghjkmnpqrstvwxyz]+$/';
 
-    // Regex pattern for validating UUID format (with or without dashes)
+    /**
+     * Regex pattern for validating UUID format (with or without dashes).
+     */
     private const UUID_PATTERN = '/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i';
 
     /**
@@ -54,14 +65,14 @@ class Validator
     }
 
     /**
-     * Check if a suffix is valid.
+     * Check if a TypeID suffix is valid.
      *
      * @param  string  $suffix  The suffix to check
      * @return bool True if the suffix is valid, false otherwise
      */
     public static function isValidSuffix(string $suffix): bool
     {
-        // Empty suffix is converted to zero suffix
+        // Empty suffix is allowed and is interpreted as the zero TypeID suffix
         if ($suffix === '') {
             return true;
         }
@@ -83,19 +94,21 @@ class Validator
      * Parse a TypeID string into prefix and suffix parts.
      *
      * @param  string  $value  The TypeID string to parse
-     * @return array|null Array with [prefix, suffix] or null if invalid
+     * @return array{0: string, 1: string} Array with [prefix, suffix]
+     *
+     * @throws InvalidArgumentException If the string is empty or improperly formatted
      */
-    public static function parseTypeID(string $value): ?array
+    public static function parseTypeID(string $value): array
     {
         // Empty string is not a valid TypeID
         if ($value === '') {
-            return null;
+            throw new InvalidArgumentException('TypeID string cannot be empty');
         }
 
         // If the string contains no underscore, treat it as a suffix only
         if (strpos($value, '_') === false) {
             if (! self::isValidSuffix($value)) {
-                return null;
+                throw new InvalidArgumentException('Invalid TypeID suffix: '.$value);
             }
 
             return ['', $value];
@@ -106,8 +119,12 @@ class Validator
         $prefix = substr($value, 0, strrpos($value, '_'));
 
         // Validate prefix and suffix
-        if (! self::isValidPrefix($prefix) || ! self::isValidSuffix($suffix)) {
-            return null;
+        if (! self::isValidPrefix($prefix)) {
+            throw new InvalidArgumentException('Invalid TypeID prefix: '.$prefix);
+        }
+
+        if (! self::isValidSuffix($suffix)) {
+            throw new InvalidArgumentException('Invalid TypeID suffix: '.$suffix);
         }
 
         return [$prefix, $suffix];

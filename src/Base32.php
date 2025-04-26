@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace TypeID;
 
 use InvalidArgumentException;
+use RuntimeException;
 
+/**
+ * Base32 encoding/decoding for TypeID (Crockford's alphabet).
+ *
+ * Requires the GMP extension.
+ */
 class Base32
 {
     // Crockford's base32 alphabet (lowercase for output)
@@ -16,9 +22,17 @@ class Base32
 
     /**
      * Encode a UUID (with or without dashes) to TypeID base32 (Crockford, 26 chars, lowercase)
+     *
+     * @param  string  $uuid  The UUID string to encode
+     * @return string The base32 encoded string
+     *
+     * @throws InvalidArgumentException If the UUID is invalid or encoding fails
+     * @throws RuntimeException If the GMP extension is not loaded
      */
     public static function encode(string $uuid): string
     {
+        self::ensureGmpExtensionLoaded();
+
         // Validate UUIDv7 structure when encoding
         if (! Validator::isValidUuidv7($uuid)) {
             throw new InvalidArgumentException('Invalid UUIDv7 string: '.$uuid);
@@ -50,15 +64,25 @@ class Base32
 
     /**
      * Decode a TypeID base32 string (Crockford, 26 chars) to canonical UUID string
+     *
+     * @param  string  $base32  The base32 string to decode
+     * @return string The decoded UUID string
+     *
+     * @throws InvalidArgumentException If the base32 string is invalid or decoding fails
+     * @throws RuntimeException If the GMP extension is not loaded
      */
     public static function decode(string $base32): string
     {
+        self::ensureGmpExtensionLoaded();
+
+        $original = $base32;
+
         // Map ambiguous characters to canonical ones and convert to lowercase
         $base32 = strtr(strtolower($base32), self::ALPHABET_MAP);
 
         // Validate the base32 string contains only valid characters (Crockford's alphabet)
         if (! Validator::isValidBase32($base32)) {
-            throw new InvalidArgumentException('Invalid TypeID base32 string: '.$base32);
+            throw new InvalidArgumentException('Invalid TypeID base32 string: '.$original);
         }
 
         // Convert base32 to integer
@@ -67,7 +91,9 @@ class Base32
             $char = $base32[$i];
             $position = strpos(self::ALPHABET, $char);
             if ($position === false) {
-                throw new InvalidArgumentException("Invalid base32 character: $char");
+                throw new InvalidArgumentException(
+                    sprintf("Invalid base32 character '%s' at position %d in input: %s", $char, $i, $original)
+                );
             }
             $integer = gmp_add(gmp_mul($integer, 32), $position);
         }
@@ -107,5 +133,17 @@ class Base32
         }
 
         return $uuid;
+    }
+
+    /**
+     * Check if GMP extension is loaded and throw an exception if not.
+     *
+     * @throws RuntimeException If the GMP extension is not loaded
+     */
+    private static function ensureGmpExtensionLoaded(): void
+    {
+        if (! extension_loaded('gmp')) {
+            throw new RuntimeException('GMP extension is required for Base32 encoding/decoding.');
+        }
     }
 }

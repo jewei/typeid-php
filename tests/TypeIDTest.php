@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use InvalidArgumentException;
 use TypeID\Base32;
 use TypeID\Exception\ConstructorException;
 use TypeID\Exception\ValidationException;
@@ -40,12 +41,12 @@ test('TypeID with invalid prefix throws exception', function (): void {
 test('TypeID with too long prefix throws exception', function (): void {
     $longPrefix = str_repeat('a', 64);
     expect(fn () => new TypeID($longPrefix, '01jsnsf2g7e2saxdjvz3j6tc3x'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ValidationException::class, 'Invalid prefix: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 });
 
 test('TypeID with invalid suffix throws exception', function (): void {
     expect(fn () => new TypeID('user', 'invalid_suffix'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ValidationException::class, 'Invalid suffix: invalid_suffix');
 });
 
 test('TypeID string representation works with toString and stringification', function (): void {
@@ -76,7 +77,7 @@ test('generate random TypeID without prefix', function (): void {
 
 test('generate with invalid prefix throws exception', function (): void {
     expect(fn () => TypeID::generate('Invalid-Prefix'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ValidationException::class, 'Invalid prefix: Invalid-Prefix');
 });
 
 test('create zero TypeID with prefix', function (): void {
@@ -97,7 +98,7 @@ test('create zero TypeID without prefix', function (): void {
 
 test('zero with invalid prefix throws exception', function (): void {
     expect(fn () => TypeID::zero('Invalid-Prefix'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ValidationException::class, 'Invalid prefix: Invalid-Prefix');
 });
 
 // ===== TypeID Conversion Tests =====
@@ -118,12 +119,12 @@ test('fromString with suffix only', function (): void {
 
 test('fromString with empty string throws exception', function (): void {
     expect(fn () => TypeID::fromString(''))
-        ->toThrow(ValidationException::class, 'TypeID string cannot be empty');
+        ->toThrow(ConstructorException::class, 'Failed to create TypeID from string: TypeID string cannot be empty');
 });
 
 test('fromString with invalid TypeID format throws exception', function (): void {
     expect(fn () => TypeID::fromString('user-01jsnsf2g7e2saxdjvz3j6tc3x'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ConstructorException::class, 'Failed to create TypeID from string: Invalid TypeID suffix: user-01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
 test('fromUuid with valid UUIDv7', function (): void {
@@ -144,14 +145,14 @@ test('fromUuid without prefix', function (): void {
 
 test('fromUuid with invalid UUID throws exception', function (): void {
     expect(fn () => TypeID::fromUuid('not-a-uuid', 'user'))
-        ->toThrow(ConstructorException::class);
+        ->toThrow(ConstructorException::class, 'Failed to create TypeID from UUID: Invalid UUIDv7 string: not-a-uuid');
 });
 
 test('fromUuid with non-UUIDv7 throws exception', function (): void {
     // This is a UUIDv4, not UUIDv7
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
     expect(fn () => TypeID::fromUuid($uuidv4, 'user'))
-        ->toThrow(ConstructorException::class);
+        ->toThrow(ConstructorException::class, 'Failed to create TypeID from UUID: Invalid UUIDv7 string: f47ac10b-58cc-4372-a567-0e02b2c3d479');
 });
 
 test('toUuid converts TypeID to original UUID', function (): void {
@@ -200,14 +201,14 @@ test('Base32 encode and decode roundtrip', function (): void {
 
 test('Base32 encode with malformed UUID throws exception', function (): void {
     expect(fn () => Base32::encode('not-a-uuid'))
-        ->toThrow(\InvalidArgumentException::class);
+        ->toThrow(InvalidArgumentException::class, 'Invalid UUIDv7 string: not-a-uuid');
 });
 
 test('Base32 encode with invalid UUIDv7 version throws exception', function (): void {
     // UUIDv4
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
     expect(fn () => Base32::encode($uuidv4))
-        ->toThrow(\InvalidArgumentException::class);
+        ->toThrow(InvalidArgumentException::class, 'Invalid UUIDv7 string: f47ac10b-58cc-4372-a567-0e02b2c3d479');
 });
 
 test('Base32 decode with zero suffix', function (): void {
@@ -217,12 +218,12 @@ test('Base32 decode with zero suffix', function (): void {
 
 test('Base32 decode with invalid characters throws exception', function (): void {
     expect(fn () => Base32::decode('ill3g4l-ch4r4ct3rs-in-b4s332'))
-        ->toThrow(\InvalidArgumentException::class);
+        ->toThrow(InvalidArgumentException::class, 'Invalid TypeID base32 string: ill3g4l-ch4r4ct3rs-in-b4s332');
 });
 
 test('Base32 decode with wrong length throws exception', function (): void {
     expect(fn () => Base32::decode('tooshort'))
-        ->toThrow(\InvalidArgumentException::class);
+        ->toThrow(InvalidArgumentException::class, 'Invalid TypeID base32 string: tooshort');
 });
 
 // ===== Validator Tests =====
@@ -289,8 +290,9 @@ test('Validator parseTypeID with valid TypeIDs', function (string $typeId, array
     ['very_long_prefix_01jsnsf2g7e2saxdjvz3j6tc3x', ['very_long_prefix', '01jsnsf2g7e2saxdjvz3j6tc3x']],
 ]);
 
-test('Validator parseTypeID with invalid TypeIDs returns null', function (string $typeId): void {
-    expect(Validator::parseTypeID($typeId))->toBeNull();
+test('Validator parseTypeID with invalid TypeIDs throws exception', function (string $typeId): void {
+    expect(fn () => Validator::parseTypeID($typeId))
+        ->toThrow(InvalidArgumentException::class);
 })->with([
     '',
     'invalid-typeid',
