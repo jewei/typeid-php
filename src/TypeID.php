@@ -64,24 +64,12 @@ class TypeID
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
-        $prefix = $prefix ?? '';
-
-        // Validate prefix first
-        if (! Validator::isValidPrefix($prefix)) {
-            throw new ValidationException("Invalid prefix: $prefix");
-        }
-
         try {
-            if (! Validator::isValidUuidv7($uuid)) {
-                throw new ValidationException("Invalid UUIDv7 format: $uuid");
-            }
-
-            return new self($prefix, Base32::encode($uuid));
-        } catch (Exception $e) {
-            if ($e instanceof ValidationException) {
-                throw $e;
-            }
-            throw new ConstructorException('Failed to create TypeID from UUID: '.$e->getMessage(), 0, $e);
+            return new self($prefix ?? '', Base32::encode($uuid));
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Exception $exception) {
+            throw new ConstructorException('Failed to create TypeID from UUID: '.$exception->getMessage(), 0, $exception);
         }
     }
 
@@ -123,7 +111,7 @@ class TypeID
         $prefix = $prefix ?? '';
 
         // Validate prefix
-        if (! Validator::isValidPrefix($prefix)) {
+        if ($prefix !== '' && ! Validator::isValidPrefix($prefix)) {
             throw new ValidationException("Invalid prefix: $prefix");
         }
 
@@ -197,22 +185,20 @@ class TypeID
      * @return string The UUID string
      *
      * @throws ValidationException If the suffix cannot be decoded to a valid UUID
+     * @throws InvalidArgumentException If the suffix is not a valid base32 string
      */
     public function toUuid(): string
     {
         try {
             $uuid = Base32::decode($this->getSuffix());
 
-            if ($uuid !== '00000000-0000-0000-0000-000000000000' && ! Validator::isValidUuidv7($uuid)) {
-                throw new ValidationException('Decoded value is not a valid UUIDv7');
+            if (! Validator::isValidUuidv7($uuid)) {
+                throw new ValidationException('Decoded value is not a valid UUIDv7: '.$uuid);
             }
 
             return $uuid;
-        } catch (Exception $e) {
-            if ($e instanceof ValidationException) {
-                throw $e;
-            }
-            throw new ValidationException('Failed to decode TypeID to UUID: '.$e->getMessage(), 0, $e);
+        } catch (Exception $exception) {
+            throw $exception;
         }
     }
 

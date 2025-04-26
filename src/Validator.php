@@ -137,6 +137,11 @@ class Validator
      */
     public static function isValidUuidv7(string $uuid): bool
     {
+        // Empty string is not a valid UUIDv7
+        if ($uuid === '') {
+            return false;
+        }
+
         // First check if it's a valid UUID format
         if (! self::isValidUuid($uuid)) {
             return false;
@@ -164,5 +169,16 @@ class Validator
         }
 
         return true;
+    }
+
+    /**
+     * Check if a string is a valid base32 suffix.
+     *
+     * @param  string  $base32  The base32 string to validate
+     * @return bool Whether the string has a valid base32 suffix
+     */
+    public static function isValidBase32(string $base32): bool
+    {
+        return self::isValidSuffix($base32);
     }
 }

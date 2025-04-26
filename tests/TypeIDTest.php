@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use TypeID\Base32;
+use TypeID\Exception\ConstructorException;
 use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 use TypeID\Validator;
@@ -143,14 +144,14 @@ test('fromUuid without prefix', function (): void {
 
 test('fromUuid with invalid UUID throws exception', function (): void {
     expect(fn () => TypeID::fromUuid('not-a-uuid', 'user'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ConstructorException::class);
 });
 
 test('fromUuid with non-UUIDv7 throws exception', function (): void {
     // This is a UUIDv4, not UUIDv7
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
     expect(fn () => TypeID::fromUuid($uuidv4, 'user'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ConstructorException::class);
 });
 
 test('toUuid converts TypeID to original UUID', function (): void {
