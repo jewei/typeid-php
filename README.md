@@ -1,3 +1,18 @@
+<p align="center">
+  <a href="https://github.com/jewei/typeid-php/actions">
+    <img src="https://github.com/jewei/typeid-php/actions/workflows/tests.yml/badge.svg" alt="Build Status">
+  </a>
+  <a href="https://packagist.org/packages/jewei/typeid-php">
+    <img src="https://img.shields.io/packagist/dt/jewei/typeid-php" alt="Total Downloads">
+  </a>
+  <a href="https://packagist.org/packages/jewei/typeid-php">
+    <img src="https://img.shields.io/packagist/v/jewei/typeid-php" alt="Latest Stable Version">
+  </a>
+  <a href="https://packagist.org/packages/jewei/typeid-php">
+    <img src="https://img.shields.io/packagist/l/jewei/typeid-php" alt="License">
+  </a>
+</p>
+
 # TypeID PHP
 
 A PHP implementation of [TypeIDs](https://github.com/jetify-com/typeid): type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs.
