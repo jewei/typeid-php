@@ -93,9 +93,13 @@ class TypeID
             throw new ValidationException("Invalid TypeID format: $value");
         }
 
-        [$prefix, $suffix] = $parts;
-
-        return new self($prefix, $suffix);
+        try {
+            return new self($parts[0], $parts[1]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw new ConstructorException('Failed to create TypeID from string: '.$e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -108,19 +112,11 @@ class TypeID
      */
     public static function generate(?string $prefix = null): self
     {
-        $prefix = $prefix ?? '';
-
-        // Validate prefix
-        if ($prefix !== '' && ! Validator::isValidPrefix($prefix)) {
-            throw new ValidationException("Invalid prefix: $prefix");
-        }
-
-        $uuid = Uuid::uuid7()->toString();
-
         try {
-            return self::fromUuid($uuid, $prefix);
+            return self::fromUuid(Uuid::uuid7()->toString(), $prefix ?? '');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (Exception $e) {
-            // This should not happen as we're generating a valid UUID internally
             throw new ConstructorException('Failed to generate TypeID: '.$e->getMessage(), 0, $e);
         }
     }
@@ -173,10 +169,10 @@ class TypeID
     public function toString(): string
     {
         if ($this->prefix === '') {
-            return $this->getSuffix();
+            return $this->suffix;
         }
 
-        return $this->prefix.'_'.$this->getSuffix();
+        return $this->prefix.'_'.$this->suffix;
     }
 
     /**
@@ -231,6 +227,6 @@ class TypeID
      */
     public function equals(self $other): bool
     {
-        return $this->prefix === $other->prefix && $this->getSuffix() === $other->getSuffix();
+        return $this->prefix === $other->prefix && $this->suffix === $other->suffix;
     }
 }
