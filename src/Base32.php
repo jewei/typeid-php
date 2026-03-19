@@ -7,21 +7,35 @@ namespace TypeID;
 use InvalidArgumentException;
 
 /**
- * Base32 encoding/decoding for TypeID (Crockford's alphabet).
+ * Crockford base32 encoder/decoder for TypeID suffixes.
  *
- * Uses direct bit manipulation on the 16-byte UUID representation —
- * no GMP or bcmath extension required.
+ * Converts a 128-bit UUID to/from a 26-character string using Crockford's
+ * alphabet (0-9, a-z minus i, l, o, u). Pure bit manipulation — no GMP
+ * or bcmath required.
+ *
+ * Bit layout — 16 UUID bytes (128 bits) → 26 × 5-bit chars:
+ *
+ *   c[ 0] = b[0]>>5                         bits 127-125  (top 2 always 0 → max char is '7')
+ *   c[ 1] = b[0]&0x1F                       bits 124-120
+ *   c[ 2] = b[1]>>3                         bits 119-115
+ *   c[ 3] = (b[1]&0x07)<<2 | b[2]>>6        bits 114-110
+ *   c[ 4] = (b[2]>>1)&0x1F                  bits 109-105
+ *   c[ 5] = (b[2]&0x01)<<4 | b[3]>>4        bits 104-100
+ *   c[ 6] = (b[3]&0x0F)<<1 | b[4]>>7        bits  99- 95
+ *   c[ 7] = (b[4]>>2)&0x1F                  bits  94- 90
+ *   c[ 8] = (b[4]&0x03)<<3 | b[5]>>5        bits  89- 85
+ *   c[ 9] = b[5]&0x1F                       bits  84- 80
+ *   … the same 10-char / 8-byte pattern repeats for bytes 6-15 → chars 10-25
  */
-class Base32
+final class Base32
 {
-    // Crockford's base32 alphabet (lowercase for output)
-    private const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
+    private const string ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 
-    // O/I/L are ambiguous in Crockford's alphabet; map them after lowercasing
-    private const NORMALIZE_MAP = ['o' => '0', 'i' => '1', 'l' => '1'];
+    /** Crockford allows O→0, I→1, L→1 to prevent misreading. */
+    private const array NORMALIZE_MAP = ['o' => '0', 'i' => '1', 'l' => '1'];
 
-    // Reverse lookup: character → 5-bit value
-    private const DECODE_MAP = [
+    /** Reverse lookup: Crockford char → 5-bit integer value. */
+    private const array DECODE_MAP = [
         '0' => 0,  '1' => 1,  '2' => 2,  '3' => 3,  '4' => 4,
         '5' => 5,  '6' => 6,  '7' => 7,  '8' => 8,  '9' => 9,
         'a' => 10, 'b' => 11, 'c' => 12, 'd' => 13, 'e' => 14,
@@ -31,10 +45,12 @@ class Base32
         'y' => 30, 'z' => 31,
     ];
 
+    private function __construct() {}
+
     /**
-     * Encode a UUID (with or without dashes) to TypeID base32 (Crockford, 26 chars, lowercase).
+     * Encode a UUID string to a 26-char Crockford base32 suffix.
      *
-     * @throws InvalidArgumentException If the UUID is invalid
+     * @throws InvalidArgumentException If $uuid is not a valid UUID.
      */
     public static function encode(string $uuid): string
     {
@@ -77,9 +93,10 @@ class Base32
     }
 
     /**
-     * Decode a TypeID base32 string (Crockford, 26 chars) to canonical UUID string.
+     * Decode a 26-char Crockford base32 suffix to its canonical UUID string.
+     * Normalizes input: lowercase, and O/I/L are mapped to 0/1/1.
      *
-     * @throws InvalidArgumentException If the base32 string is invalid
+     * @throws InvalidArgumentException If $base32 is not a valid 26-char Crockford string.
      */
     public static function decode(string $base32): string
     {

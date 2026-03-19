@@ -13,15 +13,15 @@ use TypeID\Validator;
 
 test('create TypeID with valid prefix and suffix', function (): void {
     $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
-    expect($typeId->getPrefix())->toBe('user');
-    expect($typeId->getSuffix())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->prefix)->toBe('user');
+    expect($typeId->suffix)->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId->toString())->toBe('user_01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
 test('create TypeID with empty prefix', function (): void {
     $typeId = new TypeID('', '01jsnsf2g7e2saxdjvz3j6tc3x');
-    expect($typeId->getPrefix())->toBe('');
-    expect($typeId->getSuffix())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->prefix)->toBe('');
+    expect($typeId->suffix)->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId->toString())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
@@ -52,8 +52,8 @@ test('TypeID string representation works with toString and stringification', fun
 test('generate random TypeID with prefix', function (): void {
     $typeId = TypeID::generate('user');
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('user');
-    expect(strlen($typeId->getSuffix()))->toBe(26);
+    expect($typeId->prefix)->toBe('user');
+    expect(strlen($typeId->suffix))->toBe(26);
     expect($typeId->toString())->toStartWith('user_');
     expect($typeId->isZero())->toBeFalse();
 });
@@ -61,9 +61,9 @@ test('generate random TypeID with prefix', function (): void {
 test('generate random TypeID without prefix', function (): void {
     $typeId = TypeID::generate();
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('');
-    expect(strlen($typeId->getSuffix()))->toBe(26);
-    expect($typeId->toString())->toBe($typeId->getSuffix());
+    expect($typeId->prefix)->toBe('');
+    expect(strlen($typeId->suffix))->toBe(26);
+    expect($typeId->toString())->toBe($typeId->suffix);
     expect($typeId->isZero())->toBeFalse();
 });
 
@@ -74,16 +74,16 @@ test('generate with invalid prefix throws exception', function (): void {
 
 test('create zero TypeID with prefix', function (): void {
     $typeId = TypeID::zero('user');
-    expect($typeId->getPrefix())->toBe('user');
-    expect($typeId->getSuffix())->toBe(TypeID::ZERO_SUFFIX);
+    expect($typeId->prefix)->toBe('user');
+    expect($typeId->suffix)->toBe(TypeID::ZERO_SUFFIX);
     expect($typeId->toString())->toBe('user_'.TypeID::ZERO_SUFFIX);
     expect($typeId->isZero())->toBeTrue();
 });
 
 test('create zero TypeID without prefix', function (): void {
     $typeId = TypeID::zero();
-    expect($typeId->getPrefix())->toBe('');
-    expect($typeId->getSuffix())->toBe(TypeID::ZERO_SUFFIX);
+    expect($typeId->prefix)->toBe('');
+    expect($typeId->suffix)->toBe(TypeID::ZERO_SUFFIX);
     expect($typeId->toString())->toBe(TypeID::ZERO_SUFFIX);
     expect($typeId->isZero())->toBeTrue();
 });
@@ -98,15 +98,15 @@ test('zero with invalid prefix throws exception', function (): void {
 test('fromString with valid TypeID string', function (): void {
     $typeId = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('user');
-    expect($typeId->getSuffix())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->prefix)->toBe('user');
+    expect($typeId->suffix)->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
 test('fromString with suffix only', function (): void {
     $typeId = TypeID::fromString('01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('');
-    expect($typeId->getSuffix())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->prefix)->toBe('');
+    expect($typeId->suffix)->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
 test('fromString with empty string throws exception', function (): void {
@@ -123,7 +123,7 @@ test('fromUuid with valid UUIDv7', function (): void {
     $uuid = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
     $typeId = TypeID::fromUuid($uuid, 'user');
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('user');
+    expect($typeId->prefix)->toBe('user');
     expect($typeId->toUuid())->toBe($uuid);
 });
 
@@ -131,7 +131,7 @@ test('fromUuid without prefix', function (): void {
     $uuid = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
     $typeId = TypeID::fromUuid($uuid);
     expect($typeId)->toBeInstanceOf(TypeID::class);
-    expect($typeId->getPrefix())->toBe('');
+    expect($typeId->prefix)->toBe('');
     expect($typeId->toUuid())->toBe($uuid);
 });
 
@@ -334,13 +334,13 @@ test('Validator isValidUuidv7 with invalid UUIDv7s', function (string $uuid, ?st
 
 test('TypeID roundtrip with various prefixes and UUIDs', function (string $prefix, string $uuid): void {
     $typeId = TypeID::fromUuid($uuid, $prefix);
-    expect($typeId->getPrefix())->toBe($prefix);
+    expect($typeId->prefix)->toBe($prefix);
     expect($typeId->toUuid())->toBe($uuid);
 
     // Roundtrip through string
     $typeIdString = $typeId->toString();
     $parsedTypeId = TypeID::fromString($typeIdString);
-    expect($parsedTypeId->getPrefix())->toBe($prefix);
+    expect($parsedTypeId->prefix)->toBe($prefix);
     expect($parsedTypeId->toUuid())->toBe($uuid);
 })->with([
     ['user', '01966b97-8a07-70b2-aeb6-5bf8e46d307d'],
@@ -371,8 +371,8 @@ test('multiple underscores in TypeID handling', function (): void {
     $typeIdWithMultipleUnderscores = 'user_profile_01jsnsf2g7e2saxdjvz3j6tc3x';
 
     $typeId = TypeID::fromString($typeIdWithMultipleUnderscores);
-    expect($typeId->getPrefix())->toBe('user_profile');
-    expect($typeId->getSuffix())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->prefix)->toBe('user_profile');
+    expect($typeId->suffix)->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
 test('zero UUID handling', function (): void {
@@ -380,7 +380,7 @@ test('zero UUID handling', function (): void {
     $typeId = TypeID::fromUuid($zeroUuid, 'user');
 
     expect($typeId->isZero())->toBeTrue();
-    expect($typeId->getSuffix())->toBe(TypeID::ZERO_SUFFIX);
+    expect($typeId->suffix)->toBe(TypeID::ZERO_SUFFIX);
     expect($typeId->toUuid())->toBe($zeroUuid);
 });
 
@@ -409,3 +409,55 @@ test('encoding TypeID', function (string $typeId, string $uuid, ?string $prefix 
     ['01jsnsqhhre86rd028q5hbv9vr', '01966b9b-c638-720d-8680-48b962bda778'],
     ['01jsnsr3fbe54rkjzfkta25nct', '01966b9c-0deb-7149-89cb-ef9e9422d59a'],
 ]);
+
+// ===== New Coverage Tests =====
+
+test('fromUuid with uppercase UUID normalizes correctly', function (): void {
+    $upper = '01966B97-8A07-70B2-AEB6-5BF8E46D307D';
+    $lower = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
+    $typeId = TypeID::fromUuid($upper, 'user');
+    expect($typeId->toUuid())->toBe($lower);
+});
+
+test('TypeID equals returns false comparing zero to non-zero with same prefix', function (): void {
+    $zero = TypeID::zero('user');
+    $nonZero = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($zero->equals($nonZero))->toBeFalse();
+});
+
+test('TypeID hasPrefix returns false when checking empty string on prefixed TypeID', function (): void {
+    $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
+    expect($typeId->hasPrefix(''))->toBeFalse();
+});
+
+test('Validator isValidSuffix with boundary suffix values', function (string $suffix, bool $expected): void {
+    expect(Validator::isValidSuffix($suffix))->toBe($expected);
+})->with([
+    ['7zzzzzzzzzzzzzzzzzzzzzzzzz', true],   // max valid
+    ['7zzzzzzzzzzzzzzzzzzzzzzzzy', true],   // just below max
+    ['8zzzzzzzzzzzzzzzzzzzzzzzzz', false],  // overflow
+]);
+
+test('fromString roundtrip with max-length prefix', function (): void {
+    $maxPrefix = str_repeat('a', 63);
+    $typeId = TypeID::fromUuid('01966b97-8a07-70b2-aeb6-5bf8e46d307d', $maxPrefix);
+    $parsed = TypeID::fromString($typeId->toString());
+    expect($parsed->prefix)->toBe($maxPrefix);
+    expect($parsed->toUuid())->toBe('01966b97-8a07-70b2-aeb6-5bf8e46d307d');
+});
+
+test('Validator isValidUuidv7 rejects non-RFC-4122 variant bits', function (string $uuid): void {
+    expect(Validator::isValidUuidv7($uuid))->toBeFalse();
+})->with([
+    '01966b97-8a07-70b2-ceb6-5bf8e46d307d', // variant c (11xx)
+    '01966b97-8a07-70b2-deb6-5bf8e46d307d', // variant d (11xx)
+]);
+
+test('ConstructorException from invalid UUID preserves previous exception', function (): void {
+    try {
+        TypeID::fromUuid('not-a-uuid', 'user');
+        expect(false)->toBeTrue(); // should not reach here
+    } catch (ConstructorException $e) {
+        expect($e->getPrevious())->toBeInstanceOf(InvalidArgumentException::class);
+    }
+});

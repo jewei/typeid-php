@@ -4,7 +4,6 @@
     "type": "library",
     "require": {
         "php": "^8.4.0",
-        "ext-gmp": "*",
         "ramsey/uuid": "^4.9"
     },
     "require-dev": {

@@ -6,7 +6,5 @@ namespace TypeID\Exception;
 
 use InvalidArgumentException;
 
-class ValidationException extends InvalidArgumentException
-{
-    // This exception is thrown when a TypeID fails validation
-}
+/** Thrown when a TypeID prefix or suffix fails spec validation. */
+final class ValidationException extends InvalidArgumentException {}

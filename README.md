@@ -7,17 +7,21 @@
 
 # TypeID PHP
 
-A PHP implementation of [TypeIDs](https://github.com/jetify-com/typeid): type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs.
+A PHP 8.4 implementation of [TypeIDs](https://github.com/jetify-com/typeid): type-safe, K-sortable, globally-unique identifiers inspired by Stripe IDs.
 
-TypeIDs extend UUIDv7 with type prefixes, offering improved ergonomics for your database IDs, API endpoints, and distributed systems.
+TypeIDs extend UUIDv7 with a type prefix, giving you better ergonomics for database IDs, API resources, and distributed systems.
 
-## Key Features
+## Features
 
-- **Type Safety** - Prevent accidentally using a `user` ID where a `product` ID is expected
-- **Developer-Friendly** - Type prefixes make debugging more intuitive
-- **K-Sortable** - Ensures good database locality compared to random UUIDs
-- **Efficient Encoding** - URL-safe base32 encoding (26 characters vs 36 for standard UUIDs)
-- **UUID Compatible** - Based on the UUIDv7 standard
+- **Type-safe** — prefix encodes the entity type, preventing ID mix-ups across types
+- **K-sortable** — UUIDv7 timestamp in the high bits means IDs sort chronologically
+- **Compact** — 26-char Crockford base32 suffix vs 36 chars for a standard UUID string
+- **URL-safe** — only `[a-z0-9_]` characters, no encoding needed
+- **Zero dependencies** — pure bit manipulation, no GMP or bcmath required
+
+## Requirements
+
+- PHP 8.4+
 
 ## Installation
 
@@ -27,39 +31,55 @@ composer require jewei/typeid-php
 
 ## Usage
 
-### Basic Usage
-
 ```php
 use TypeID\TypeID;
 
-// Create a new TypeID
-$typeId = TypeID::generate('user');
-echo $typeId; // user_01h455vb4pex5vsknk084sn02q
+// Generate a new K-sortable TypeID
+$id = TypeID::generate('user');
+echo $id;          // user_01jsnsf2g7e2saxdjvz3j6tc3x
+echo $id->prefix;  // user
+echo $id->suffix;  // 01jsnsf2g7e2saxdjvz3j6tc3x
+echo $id->toUuid(); // 01966b97-8a07-70b2-aeb6-5bf8e46d307d
 
-// Parse a TypeID string
-$typeId = TypeID::fromString('user_01h455vb4pex5vsknk084sn02q');
-echo $typeId->getPrefix(); // user
-echo $typeId->getSuffix(); // 01h455vb4pex5vsknk084sn02q
-echo $typeId->toUuid();    // 01890a5d-ac96-774b-bcce-b302099a8057
+// Parse from a string
+$id = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
+echo $id->prefix;  // user
 
-// Convert UUID to TypeID
-$uuid = '0188bac7-4afa-78aa-bc3b-bd1eef28d881';
-$typeId = TypeID::fromUuid('post', $uuid);
-echo $typeId; // post_01h2xcejqtf2nbrexx3vqjhp41
+// Encode an existing UUID
+$id = TypeID::fromUuid('01966b97-8a07-70b2-aeb6-5bf8e46d307d', 'invoice');
+echo $id; // invoice_01jsnsf2g7e2saxdjvz3j6tc3x
 
-// Convert TypeId to UUID
-$typeId = 'invoice_01jsrkjbqyef0rzzhrpqph5nxk'
-$uuid = TypeID::fromString($typeId)->toUuid();
-echo $uuid; // 01967139-2efe-73c1-8ffe-38b5ed12d7b3
+// Zero/nil TypeID — useful as a sentinel value
+$zero = TypeID::zero('user');
+echo $zero->isZero(); // true
+
+// Equality check
+$a = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
+$b = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
+echo $a->equals($b); // true
 ```
 
-## TypeID Examples Table
+## Format
 
-| TypeID                                   | Prefix        | Suffix                     |
-| ---------------------------------------- | ------------- | -------------------------- |
-| 01jsnsf2g7e2saxdjvz3j6tc3x               | (empty)       | 01jsnsf2g7e2saxdjvz3j6tc3x |
-| cus_01jsrk9hq5e0tr8cv47xerqkww           | cus           | 01jsrk9hq5e0tr8cv47xerqkww |
-| user_01h455vb4pex5vsknk084sn02q          | user          | 01h455vb4pex5vsknk084sn02q |
-| post_01h2xcejqtf2nbrexx3vqjhp41          | post          | 01h2xcejqtf2nbrexx3vqjhp41 |
-| post_category_01jsnsf2g7e2saxdjvz3j6tc3x | post_category | 01jsnsf2g7e2saxdjvz3j6tc3x |
-| product_sku_01jsrjpym8edqsfjhkgp2vmspq   | product_sku   | 01jsrjpym8edqsfjhkgp2vmspq |
+```
+user_01jsnsf2g7e2saxdjvz3j6tc3x
+^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+│     └─ 26-char Crockford base32 (encodes a 128-bit UUIDv7)
+└─ prefix: lowercase entity type label (0–63 chars)
+```
+
+The prefix is separated from the suffix by `_`. When no prefix is used, the TypeID is just the bare 26-char suffix. Multiple underscores are allowed in the prefix (`post_category_01jsnsf2g7…`); the last underscore is always the delimiter.
+
+## Examples
+
+| TypeID                                     | Prefix        | Suffix                     |
+| ------------------------------------------ | ------------- | -------------------------- |
+| `01jsnsf2g7e2saxdjvz3j6tc3x`               | _(none)_      | 01jsnsf2g7e2saxdjvz3j6tc3x |
+| `user_01jsnsf2g7e2saxdjvz3j6tc3x`          | user          | 01jsnsf2g7e2saxdjvz3j6tc3x |
+| `post_category_01jsnsf2g7e2saxdjvz3j6tc3x` | post_category | 01jsnsf2g7e2saxdjvz3j6tc3x |
+
+## Testing
+
+```bash
+composer test
+```

@@ -5,163 +5,149 @@ declare(strict_types=1);
 namespace TypeID;
 
 use Exception;
+use Override;
 use Ramsey\Uuid\Uuid;
+use Stringable;
 use TypeID\Exception\ConstructorException;
 use TypeID\Exception\ValidationException;
 
-class TypeID
+/**
+ * A TypeID: a type-safe, K-sortable, globally-unique identifier.
+ *
+ * Format: {prefix}_{suffix}  e.g. user_01jsnsf2g7e2saxdjvz3j6tc3x
+ *
+ * - prefix  → lowercase entity type label (0–63 chars, e.g. 'user', 'order')
+ * - suffix  → 26-char Crockford base32-encoded UUID (K-sortable via UUIDv7)
+ *
+ * @see https://github.com/jetpack-io/typeid
+ */
+final class TypeID implements Stringable
 {
-    // Zero suffix used for default/empty TypeIDs
-    public const ZERO_SUFFIX = '00000000000000000000000000';
+    /** Crockford base32 of the nil UUID — useful as a sentinel/zero value. */
+    public const string ZERO_SUFFIX = '00000000000000000000000000';
 
-    // The type prefix for this TypeID
-    private string $prefix;
-
-    // The suffix part in base32 encoding
-    private string $suffix;
-
-    /**
-     * TypeID constructor.
-     *
-     * @throws ValidationException If the prefix or suffix is invalid
-     */
-    public function __construct(string $prefix, string $suffix)
-    {
-        if (! Validator::isValidPrefix($prefix)) {
-            throw new ValidationException("Invalid prefix: $prefix");
+    /** @throws ValidationException If prefix or suffix fails TypeID spec validation. */
+    public function __construct(
+        /** Entity-type label (e.g. 'user', 'order'). Empty string means no prefix. */
+        public readonly string $prefix,
+        /** Crockford base32 UUID payload — always exactly 26 lowercase characters. */
+        public readonly string $suffix,
+    ) {
+        if (! Validator::isValidPrefix($this->prefix)) {
+            throw new ValidationException("Invalid prefix: {$this->prefix}");
         }
 
-        if (! Validator::isValidSuffix($suffix)) {
-            throw new ValidationException("Invalid suffix: $suffix");
+        if (! Validator::isValidSuffix($this->suffix)) {
+            throw new ValidationException("Invalid suffix: {$this->suffix}");
         }
-
-        $this->prefix = $prefix;
-        $this->suffix = $suffix;
     }
 
-    /**
-     * Same as toString() but can be used implicitly.
-     */
+    #[Override]
     public function __toString(): string
     {
         return $this->toString();
     }
 
     /**
-     * Create a new TypeID from a UUID.
+     * Create a TypeID from any valid UUID string (v4, v7, nil, …).
+     * Uppercase hex is accepted and normalized to lowercase.
      *
-     * @throws ValidationException If the prefix is invalid
-     * @throws ConstructorException If the UUID is invalid
+     * @throws ConstructorException If $uuid is not a valid UUID string.
+     * @throws ValidationException If $prefix fails spec validation.
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
         try {
             $suffix = Base32::encode($uuid);
-        } catch (Exception $exception) {
-            throw new ConstructorException('Failed to create TypeID from UUID: '.$exception->getMessage(), 0, $exception);
+        } catch (Exception $e) {
+            throw new ConstructorException(
+                'Failed to create TypeID from UUID: '.$e->getMessage(),
+                previous: $e,
+            );
         }
 
         return new self($prefix ?? '', $suffix);
     }
 
     /**
-     * Parse a TypeID from a string.
+     * Parse a TypeID from its canonical string form.
+     * Accepts prefixed ('user_01jsnsf2g7…') and bare ('01jsnsf2g7…') forms.
+     * The last underscore is always the prefix/suffix delimiter.
      *
-     * @throws ConstructorException If the string is invalid or TypeID construction fails
+     * @throws ConstructorException If $value is empty, malformed, or fails spec validation.
      */
     public static function fromString(string $value): self
     {
         try {
-            $parts = Validator::parseTypeID($value);
+            [$prefix, $suffix] = Validator::parseTypeID($value);
 
-            return new self($parts[0], $parts[1]);
+            return new self($prefix, $suffix);
         } catch (Exception $e) {
-            throw new ConstructorException('Failed to create TypeID from string: '.$e->getMessage(), 0, $e);
+            throw new ConstructorException(
+                'Failed to create TypeID from string: '.$e->getMessage(),
+                previous: $e,
+            );
         }
     }
 
     /**
-     * Generate a new random TypeID with the given prefix.
+     * Generate a new TypeID backed by a fresh UUIDv7.
+     * UUIDv7 encodes a millisecond timestamp in the high bits, making
+     * generated TypeIDs naturally K-sortable by creation time.
      *
-     * @throws ValidationException If the prefix is invalid
-     * @throws ConstructorException If TypeID generation fails
+     * @throws ConstructorException If UUIDv7 generation fails.
+     * @throws ValidationException If $prefix fails spec validation.
      */
     public static function generate(?string $prefix = null): self
     {
         try {
             $uuid = Uuid::uuid7()->toString();
         } catch (Exception $e) {
-            throw new ConstructorException('Failed to generate TypeID: '.$e->getMessage(), 0, $e);
+            throw new ConstructorException(
+                'Failed to generate TypeID: '.$e->getMessage(),
+                previous: $e,
+            );
         }
 
         return self::fromUuid($uuid, $prefix ?? '');
     }
 
     /**
-     * Create a zero TypeID with the given prefix.
+     * Create the nil TypeID (all 128 UUID bits are zero).
+     * Useful as a sentinel, placeholder, or default FK value.
      *
-     * @throws ValidationException If the prefix is invalid
+     * @throws ValidationException If $prefix fails spec validation.
      */
     public static function zero(?string $prefix = null): self
     {
         return new self($prefix ?? '', self::ZERO_SUFFIX);
     }
 
-    /**
-     * Get the prefix of this TypeID.
-     */
-    public function getPrefix(): string
-    {
-        return $this->prefix;
-    }
-
-    /**
-     * Get the suffix of this TypeID in base32 representation.
-     */
-    public function getSuffix(): string
-    {
-        return $this->suffix;
-    }
-
-    /**
-     * Convert the TypeID to its canonical string representation.
-     */
+    /** Returns '{prefix}_{suffix}', or bare '{suffix}' when prefix is empty. */
     public function toString(): string
     {
-        if ($this->prefix === '') {
-            return $this->suffix;
-        }
-
-        return $this->prefix.'_'.$this->suffix;
+        return $this->prefix !== '' ? "{$this->prefix}_{$this->suffix}" : $this->suffix;
     }
 
-    /**
-     * Decode the TypeID's suffix as a UUID and return it.
-     */
+    /** Decode the suffix back to its canonical hyphenated UUID string (e.g. '01966b97-8a07-…'). */
     public function toUuid(): string
     {
         return Base32::decode($this->suffix);
     }
 
-    /**
-     * Check if this TypeID is a zero ID.
-     */
+    /** True when this TypeID represents the nil UUID (all 128 bits are zero). */
     public function isZero(): bool
     {
         return $this->suffix === self::ZERO_SUFFIX;
     }
 
-    /**
-     * Check if this TypeID has a specific prefix.
-     */
+    /** True when this TypeID's prefix exactly matches $prefix (case-sensitive). */
     public function hasPrefix(string $prefix): bool
     {
         return $this->prefix === $prefix;
     }
 
-    /**
-     * Check if this TypeID equals another TypeID.
-     */
+    /** Value equality — two TypeIDs are equal only when prefix and suffix both match. */
     public function equals(self $other): bool
     {
         return $this->prefix === $other->prefix && $this->suffix === $other->suffix;
