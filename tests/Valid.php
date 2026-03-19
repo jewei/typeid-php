@@ -4,73 +4,21 @@ declare(strict_types=1);
 
 use TypeID\TypeID;
 
-test('validate valid typeids', function ($name, $typeid, $prefix, $uuid): void {
+$validCases = json_decode(file_get_contents(__DIR__.'/../spec/valid.json'), true);
 
-    // Test parsing from string
+dataset('valid typeids', array_combine(
+    array_column($validCases, 'name'),
+    array_map(fn ($case) => [$case['typeid'], $case['prefix'], $case['uuid']], $validCases)
+));
+
+test('validate valid typeids', function (string $typeid, string $prefix, string $uuid): void {
     $tid = TypeID::fromString($typeid);
     expect($tid)->toBeInstanceOf(TypeID::class);
     expect((string) $tid)->toBe($typeid);
+    expect($tid->prefix)->toBe($prefix);
 
-    // Test prefix
-    expect($tid->getPrefix())->toBe($prefix);
-
-    // Test round-trip from UUID (if prefix is present)
     $tidFromUuid = TypeID::fromUuid($uuid, $prefix);
     expect((string) $tidFromUuid)->toBe($typeid);
 
-})->with([
-    [
-        'name' => 'nil',
-        'typeid' => '00000000000000000000000000',
-        'prefix' => '',
-        'uuid' => '00000000-0000-0000-0000-000000000000',
-    ],
-    [
-        'name' => 'one',
-        'typeid' => '00000000000000000000000001',
-        'prefix' => '',
-        'uuid' => '00000000-0000-0000-0000-000000000001',
-    ],
-    [
-        'name' => 'ten',
-        'typeid' => '0000000000000000000000000a',
-        'prefix' => '',
-        'uuid' => '00000000-0000-0000-0000-00000000000a',
-    ],
-    [
-        'name' => 'sixteen',
-        'typeid' => '0000000000000000000000000g',
-        'prefix' => '',
-        'uuid' => '00000000-0000-0000-0000-000000000010',
-    ],
-    [
-        'name' => 'thirty-two',
-        'typeid' => '00000000000000000000000010',
-        'prefix' => '',
-        'uuid' => '00000000-0000-0000-0000-000000000020',
-    ],
-    [
-        'name' => 'max-valid',
-        'typeid' => '7zzzzzzzzzzzzzzzzzzzzzzzzz',
-        'prefix' => '',
-        'uuid' => 'ffffffff-ffff-ffff-ffff-ffffffffffff',
-    ],
-    [
-        'name' => 'valid-alphabet',
-        'typeid' => 'prefix_0123456789abcdefghjkmnpqrs',
-        'prefix' => 'prefix',
-        'uuid' => '0110c853-1d09-52d8-d73e-1194e95b5f19',
-    ],
-    [
-        'name' => 'valid-uuidv7',
-        'typeid' => 'prefix_01h455vb4pex5vsknk084sn02q',
-        'prefix' => 'prefix',
-        'uuid' => '01890a5d-ac96-774b-bcce-b302099a8057',
-    ],
-    [
-        'name' => 'prefix-underscore',
-        'typeid' => 'pre_fix_00000000000000000000000000',
-        'prefix' => 'pre_fix',
-        'uuid' => '00000000-0000-0000-0000-000000000000',
-    ],
-]);
+    expect($tid->toUuid())->toBe($uuid);
+})->with('valid typeids');
