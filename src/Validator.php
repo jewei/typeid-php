@@ -12,8 +12,8 @@ use InvalidArgumentException;
  */
 final class Validator
 {
-    private const int    MAX_PREFIX_LENGTH = 63;
-    private const int    SUFFIX_LENGTH = 26;
+    private const int MAX_PREFIX_LENGTH = 63;
+    private const int SUFFIX_LENGTH = 26;
 
     /**
      * Prefix rules: lowercase a-z only; may contain underscores but not at

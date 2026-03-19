@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TypeID;
 
 use Exception;
+use JsonSerializable;
 use Override;
 use Ramsey\Uuid\Uuid;
 use Stringable;
@@ -21,17 +22,15 @@ use TypeID\Exception\ValidationException;
  *
  * @see https://github.com/jetpack-io/typeid
  */
-final class TypeID implements Stringable
+final class TypeID implements JsonSerializable, Stringable
 {
     /** Crockford base32 of the nil UUID — useful as a sentinel/zero value. */
     public const string ZERO_SUFFIX = '00000000000000000000000000';
 
     /** @throws ValidationException If prefix or suffix fails TypeID spec validation. */
     public function __construct(
-        /** Entity-type label (e.g. 'user', 'order'). Empty string means no prefix. */
-        public readonly string $prefix,
-        /** Crockford base32 UUID payload — always exactly 26 lowercase characters. */
-        public readonly string $suffix,
+        public readonly string $prefix, // Entity-type label (e.g. 'user', 'order'). Empty string means no prefix.
+        public readonly string $suffix, // Crockford base32 UUID payload — always exactly 26 lowercase characters.
     ) {
         if (! Validator::isValidPrefix($this->prefix)) {
             throw new ValidationException("Invalid prefix: {$this->prefix}");
@@ -67,6 +66,33 @@ final class TypeID implements Stringable
         }
 
         return new self($prefix ?? '', $suffix);
+    }
+
+    /**
+     * Create a TypeID from a prefix and raw 16-byte binary UUID.
+     * Useful for round-tripping UUIDs stored as binary(16) in a database.
+     *
+     * @throws ConstructorException If $bytes is not exactly 16 bytes.
+     * @throws ValidationException If $prefix fails spec validation.
+     */
+    public static function fromBytes(string $bytes, ?string $prefix = null): self
+    {
+        if (strlen($bytes) !== 16) {
+            throw new ConstructorException(
+                'UUID bytes must be exactly 16 bytes, got '.strlen($bytes)
+            );
+        }
+
+        $hex = bin2hex($bytes);
+        $uuid = sprintf('%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12),
+        );
+
+        return self::fromUuid($uuid, $prefix);
     }
 
     /**
@@ -135,10 +161,22 @@ final class TypeID implements Stringable
         return Base32::decode($this->suffix);
     }
 
+    /** Decode the suffix to raw 16-byte binary — useful for binary(16) database columns. */
+    public function bytes(): string
+    {
+        return hex2bin(str_replace('-', '', $this->toUuid()));
+    }
+
     /** True when this TypeID represents the nil UUID (all 128 bits are zero). */
     public function isZero(): bool
     {
         return $this->suffix === self::ZERO_SUFFIX;
+    }
+
+    /** True when this TypeID has a non-zero suffix (i.e. not the nil UUID). */
+    public function hasSuffix(): bool
+    {
+        return $this->suffix !== self::ZERO_SUFFIX;
     }
 
     /** True when this TypeID's prefix exactly matches $prefix (case-sensitive). */
@@ -151,5 +189,11 @@ final class TypeID implements Stringable
     public function equals(self $other): bool
     {
         return $this->prefix === $other->prefix && $this->suffix === $other->suffix;
+    }
+
+    /** Enables native json_encode() support — serializes as the canonical string form. */
+    public function jsonSerialize(): string
+    {
+        return $this->toString();
     }
 }
