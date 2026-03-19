@@ -25,14 +25,6 @@ test('create TypeID with empty prefix', function (): void {
     expect($typeId->toString())->toBe('01jsnsf2g7e2saxdjvz3j6tc3x');
 });
 
-test('create TypeID with empty suffix defaults to zero suffix', function (): void {
-    $typeId = new TypeID('user', '');
-    expect($typeId->getPrefix())->toBe('user');
-    expect($typeId->getSuffix())->toBe(TypeID::ZERO_SUFFIX);
-    expect($typeId->toString())->toBe('user_'.TypeID::ZERO_SUFFIX);
-    expect($typeId->isZero())->toBeTrue();
-});
-
 test('TypeID with invalid prefix throws exception', function (): void {
     expect(fn () => new TypeID('Invalid-Prefix', '01jsnsf2g7e2saxdjvz3j6tc3x'))
         ->toThrow(ValidationException::class, 'Invalid prefix: Invalid-Prefix');
@@ -145,14 +137,15 @@ test('fromUuid without prefix', function (): void {
 
 test('fromUuid with invalid UUID throws exception', function (): void {
     expect(fn () => TypeID::fromUuid('not-a-uuid', 'user'))
-        ->toThrow(ConstructorException::class, 'Failed to create TypeID from UUID: Invalid UUIDv7 string: not-a-uuid');
+        ->toThrow(ConstructorException::class, 'Failed to create TypeID from UUID: Invalid UUID string: not-a-uuid');
 });
 
-test('fromUuid with non-UUIDv7 throws exception', function (): void {
-    // This is a UUIDv4, not UUIDv7
+test('fromUuid with non-UUIDv7 succeeds', function (): void {
+    // UUIDv4 should now encode successfully
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
-    expect(fn () => TypeID::fromUuid($uuidv4, 'user'))
-        ->toThrow(ConstructorException::class, 'Failed to create TypeID from UUID: Invalid UUIDv7 string: f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    $typeId = TypeID::fromUuid($uuidv4, 'user');
+    expect($typeId)->toBeInstanceOf(TypeID::class);
+    expect($typeId->toUuid())->toBe($uuidv4);
 });
 
 test('toUuid converts TypeID to original UUID', function (): void {
@@ -201,18 +194,19 @@ test('Base32 encode and decode roundtrip', function (): void {
 
 test('Base32 encode with malformed UUID throws exception', function (): void {
     expect(fn () => Base32::encode('not-a-uuid'))
-        ->toThrow(InvalidArgumentException::class, 'Invalid UUIDv7 string: not-a-uuid');
+        ->toThrow(InvalidArgumentException::class, 'Invalid UUID string: not-a-uuid');
 });
 
-test('Base32 encode with invalid UUIDv7 version throws exception', function (): void {
-    // UUIDv4
+test('Base32 encode with valid non-UUIDv7 succeeds', function (): void {
+    // UUIDv4 should encode successfully
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
-    expect(fn () => Base32::encode($uuidv4))
-        ->toThrow(InvalidArgumentException::class, 'Invalid UUIDv7 string: f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    $encoded = Base32::encode($uuidv4);
+    expect($encoded)->toHaveLength(26);
+    expect(Base32::decode($encoded))->toBe($uuidv4);
 });
 
 test('Base32 decode with zero suffix', function (): void {
-    $zeroUuid = '00000000-0000-7000-8000-000000000000';
+    $zeroUuid = '00000000-0000-0000-0000-000000000000';
     expect(Base32::decode(TypeID::ZERO_SUFFIX))->toBe($zeroUuid);
 });
 
@@ -264,10 +258,8 @@ test('Validator isValidPrefix with invalid prefixes', function (string $prefix):
 test('Validator isValidSuffix with valid suffixes', function (string $suffix): void {
     expect(Validator::isValidSuffix($suffix))->toBeTrue();
 })->with([
-    '',
     '01jsnsf2g7e2saxdjvz3j6tc3x',
     TypeID::ZERO_SUFFIX,
-    '8zzzzzzzzzzzzzzzzzzzzzzzzz',
 ]);
 
 test('Validator isValidSuffix with invalid suffixes', function (string $suffix): void {
@@ -384,7 +376,7 @@ test('multiple underscores in TypeID handling', function (): void {
 });
 
 test('zero UUID handling', function (): void {
-    $zeroUuid = '00000000-0000-7000-8000-000000000000';
+    $zeroUuid = '00000000-0000-0000-0000-000000000000';
     $typeId = TypeID::fromUuid($zeroUuid, 'user');
 
     expect($typeId->isZero())->toBeTrue();

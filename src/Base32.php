@@ -5,145 +5,119 @@ declare(strict_types=1);
 namespace TypeID;
 
 use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Base32 encoding/decoding for TypeID (Crockford's alphabet).
  *
- * Requires the GMP extension.
+ * Uses direct bit manipulation on the 16-byte UUID representation —
+ * no GMP or bcmath extension required.
  */
 class Base32
 {
     // Crockford's base32 alphabet (lowercase for output)
     private const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 
-    // Map ambiguous characters to canonical ones
-    private const ALPHABET_MAP = ['O' => '0', 'o' => '0', 'I' => '1', 'i' => '1', 'L' => '1', 'l' => '1'];
+    // O/I/L are ambiguous in Crockford's alphabet; map them after lowercasing
+    private const NORMALIZE_MAP = ['o' => '0', 'i' => '1', 'l' => '1'];
+
+    // Reverse lookup: character → 5-bit value
+    private const DECODE_MAP = [
+        '0' => 0,  '1' => 1,  '2' => 2,  '3' => 3,  '4' => 4,
+        '5' => 5,  '6' => 6,  '7' => 7,  '8' => 8,  '9' => 9,
+        'a' => 10, 'b' => 11, 'c' => 12, 'd' => 13, 'e' => 14,
+        'f' => 15, 'g' => 16, 'h' => 17, 'j' => 18, 'k' => 19,
+        'm' => 20, 'n' => 21, 'p' => 22, 'q' => 23, 'r' => 24,
+        's' => 25, 't' => 26, 'v' => 27, 'w' => 28, 'x' => 29,
+        'y' => 30, 'z' => 31,
+    ];
 
     /**
-     * Encode a UUID (with or without dashes) to TypeID base32 (Crockford, 26 chars, lowercase)
+     * Encode a UUID (with or without dashes) to TypeID base32 (Crockford, 26 chars, lowercase).
      *
-     * @param  string  $uuid  The UUID string to encode
-     * @return string The base32 encoded string
-     *
-     * @throws InvalidArgumentException If the UUID is invalid or encoding fails
-     * @throws RuntimeException If the GMP extension is not loaded
+     * @throws InvalidArgumentException If the UUID is invalid
      */
     public static function encode(string $uuid): string
     {
-        self::ensureGmpExtensionLoaded();
-
-        // Validate UUIDv7 structure when encoding
-        if (! Validator::isValidUuidv7($uuid)) {
-            throw new InvalidArgumentException('Invalid UUIDv7 string: '.$uuid);
+        if (! Validator::isValidUuid($uuid)) {
+            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
         }
 
-        // Convert hex to binary
-        $binary = hex2bin(strtolower(str_replace('-', '', $uuid)));
-        if ($binary === false) {
-            throw new InvalidArgumentException('Failed to convert hex to binary');
-        }
+        /** @var int[] $b */
+        $b = array_values(unpack('C*', hex2bin(str_replace('-', '', strtolower($uuid)))));
 
-        // Convert binary to GMP integer
-        $gmp = gmp_import($binary, 1, GMP_MSW_FIRST | GMP_NATIVE_ENDIAN);
-        if ($gmp === false) {
-            throw new InvalidArgumentException('Failed to import binary to GMP');
-        }
+        $a = self::ALPHABET;
 
-        // Encode to base32 (Crockford, lowercase)
-        $base32 = '';
-        while (gmp_cmp($gmp, 0) > 0) {
-            $remainder = gmp_intval(gmp_mod($gmp, 32));
-            $base32 = self::ALPHABET[$remainder].$base32;
-            $gmp = gmp_div_q($gmp, 32);
-        }
-
-        // Pad to 26 chars (128 bits / 5 = 25.6, so 26 chars)
-        return str_pad($base32, 26, '0', STR_PAD_LEFT);
+        return
+            $a[$b[0] >> 5].
+            $a[$b[0] & 0x1F].
+            $a[$b[1] >> 3].
+            $a[($b[1] & 0x07) << 2 | $b[2] >> 6].
+            $a[($b[2] >> 1) & 0x1F].
+            $a[($b[2] & 0x01) << 4 | $b[3] >> 4].
+            $a[($b[3] & 0x0F) << 1 | $b[4] >> 7].
+            $a[($b[4] >> 2) & 0x1F].
+            $a[($b[4] & 0x03) << 3 | $b[5] >> 5].
+            $a[$b[5] & 0x1F].
+            $a[$b[6] >> 3].
+            $a[($b[6] & 0x07) << 2 | $b[7] >> 6].
+            $a[($b[7] >> 1) & 0x1F].
+            $a[($b[7] & 0x01) << 4 | $b[8] >> 4].
+            $a[($b[8] & 0x0F) << 1 | $b[9] >> 7].
+            $a[($b[9] >> 2) & 0x1F].
+            $a[($b[9] & 0x03) << 3 | $b[10] >> 5].
+            $a[$b[10] & 0x1F].
+            $a[$b[11] >> 3].
+            $a[($b[11] & 0x07) << 2 | $b[12] >> 6].
+            $a[($b[12] >> 1) & 0x1F].
+            $a[($b[12] & 0x01) << 4 | $b[13] >> 4].
+            $a[($b[13] & 0x0F) << 1 | $b[14] >> 7].
+            $a[($b[14] >> 2) & 0x1F].
+            $a[($b[14] & 0x03) << 3 | $b[15] >> 5].
+            $a[$b[15] & 0x1F];
     }
 
     /**
-     * Decode a TypeID base32 string (Crockford, 26 chars) to canonical UUID string
+     * Decode a TypeID base32 string (Crockford, 26 chars) to canonical UUID string.
      *
-     * @param  string  $base32  The base32 string to decode
-     * @return string The decoded UUID string
-     *
-     * @throws InvalidArgumentException If the base32 string is invalid or decoding fails
-     * @throws RuntimeException If the GMP extension is not loaded
+     * @throws InvalidArgumentException If the base32 string is invalid
      */
     public static function decode(string $base32): string
     {
-        self::ensureGmpExtensionLoaded();
-
         $original = $base32;
+        $base32 = strtr(strtolower($base32), self::NORMALIZE_MAP);
 
-        // Map ambiguous characters to canonical ones and convert to lowercase
-        $base32 = strtr(strtolower($base32), self::ALPHABET_MAP);
-
-        // Validate the base32 string contains only valid characters (Crockford's alphabet)
         if (! Validator::isValidBase32($base32)) {
             throw new InvalidArgumentException('Invalid TypeID base32 string: '.$original);
         }
 
-        // Convert base32 to integer
-        $integer = gmp_init(0);
-        for ($i = 0; $i < 26; $i++) {
-            $char = $base32[$i];
-            $position = strpos(self::ALPHABET, $char);
-            if ($position === false) {
-                throw new InvalidArgumentException(
-                    sprintf("Invalid base32 character '%s' at position %d in input: %s", $char, $i, $original)
-                );
-            }
-            $integer = gmp_add(gmp_mul($integer, 32), $position);
-        }
+        $m = self::DECODE_MAP;
+        $v = array_map(fn (string $ch): int => $m[$ch], str_split($base32));
 
-        // Convert integer to binary (16 bytes) – explicit endianness
-        $binary = gmp_export($integer, 1, GMP_MSW_FIRST | GMP_NATIVE_ENDIAN);
-        if ($binary === false) {
-            throw new InvalidArgumentException('Failed to export GMP to binary');
-        }
+        $hex = bin2hex(pack('C*',
+            $v[0] << 5 | $v[1],
+            $v[2] << 3 | $v[3] >> 2,
+            ($v[3] & 0x03) << 6 | $v[4] << 1 | $v[5] >> 4,
+            ($v[5] & 0x0F) << 4 | $v[6] >> 1,
+            ($v[6] & 0x01) << 7 | $v[7] << 2 | $v[8] >> 3,
+            ($v[8] & 0x07) << 5 | $v[9],
+            $v[10] << 3 | $v[11] >> 2,
+            ($v[11] & 0x03) << 6 | $v[12] << 1 | $v[13] >> 4,
+            ($v[13] & 0x0F) << 4 | $v[14] >> 1,
+            ($v[14] & 0x01) << 7 | $v[15] << 2 | $v[16] >> 3,
+            ($v[16] & 0x07) << 5 | $v[17],
+            $v[18] << 3 | $v[19] >> 2,
+            ($v[19] & 0x03) << 6 | $v[20] << 1 | $v[21] >> 4,
+            ($v[21] & 0x0F) << 4 | $v[22] >> 1,
+            ($v[22] & 0x01) << 7 | $v[23] << 2 | $v[24] >> 3,
+            ($v[24] & 0x07) << 5 | $v[25],
+        ));
 
-        $length = strlen($binary);
-
-        // Pad to 16 bytes if needed (binary safe)
-        if ($length < 16) {
-            $binary = str_repeat("\0", 16 - $length).$binary;
-        } elseif ($length > 16) {
-            // Overflow – decoded value exceeds 128 bits
-            throw new InvalidArgumentException('Decoded value is longer than 128 bits');
-        }
-
-        // Convert binary to hexadecimal
-        $hex = bin2hex($binary);
-
-        // Format as UUID (8-4-4-4-12)
-        $uuid = sprintf(
-            '%s-%s-%s-%s-%s',
+        return sprintf('%s-%s-%s-%s-%s',
             substr($hex, 0, 8),
             substr($hex, 8, 4),
             substr($hex, 12, 4),
             substr($hex, 16, 4),
-            substr($hex, 20, 12)
+            substr($hex, 20, 12),
         );
-
-        // Validate the UUID has UUIDv7 structure
-        if (! Validator::isValidUuidv7($uuid)) {
-            throw new InvalidArgumentException('Decoded UUID does not have valid UUIDv7 format: '.$uuid);
-        }
-
-        return $uuid;
-    }
-
-    /**
-     * Check if GMP extension is loaded and throw an exception if not.
-     *
-     * @throws RuntimeException If the GMP extension is not loaded
-     */
-    private static function ensureGmpExtensionLoaded(): void
-    {
-        if (! extension_loaded('gmp')) {
-            throw new RuntimeException('GMP extension is required for Base32 encoding/decoding.');
-        }
     }
 }
