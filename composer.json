@@ -1,7 +1,17 @@
 {
+    "$schema": "https://getcomposer.org/schema.json",
     "name": "jewei/typeid-php",
-    "description": "PHP implementation of TypeID specification: type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs",
     "type": "library",
+    "description": "PHP implementation of TypeID specification: type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs",
+    "keywords": [
+        "typeid",
+        "uuid",
+        "identifier",
+        "type-safe",
+        "k-sortable",
+        "stripe-ids"
+    ],
+    "license": "MIT",
     "require": {
         "php": "^8.4.0",
         "ramsey/uuid": "^4.9"
@@ -11,11 +21,13 @@
         "pestphp/pest": "^4.4",
         "symfony/var-dumper": "^8.0"
     },
-    "license": "MIT",
     "autoload": {
         "psr-4": {
             "TypeID\\": "src/"
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
     },
     "authors": [
         {
@@ -23,10 +35,11 @@
             "email": "jewei.mak@gmail.com"
         }
     ],
-    "minimum-stability": "stable",
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
