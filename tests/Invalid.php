@@ -12,5 +12,5 @@ dataset('invalid typeids', array_combine(
 ));
 
 test('reject invalid typeids', function (string $typeid): void {
-    expect(fn () => TypeID::fromString($typeid))->toThrow(Exception::class);
+    expect(fn () => TypeID::fromString($typeid))->toThrow(\Exception::class);
 })->with('invalid typeids');
