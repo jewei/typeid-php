@@ -83,14 +83,7 @@ final class TypeID implements JsonSerializable, Stringable
             );
         }
 
-        $hex = bin2hex($bytes);
-        $uuid = sprintf('%s-%s-%s-%s-%s',
-            substr($hex, 0, 8),
-            substr($hex, 8, 4),
-            substr($hex, 12, 4),
-            substr($hex, 16, 4),
-            substr($hex, 20, 12),
-        );
+        $uuid = Uuid::fromBytes($bytes)->toString();
 
         return self::fromUuid($uuid, $prefix);
     }
@@ -164,7 +157,7 @@ final class TypeID implements JsonSerializable, Stringable
     /** Decode the suffix to raw 16-byte binary — useful for binary(16) database columns. */
     public function bytes(): string
     {
-        return hex2bin(str_replace('-', '', $this->toUuid()));
+        return Uuid::fromString($this->toUuid())->getBytes();
     }
 
     /** True when this TypeID represents the nil UUID (all 128 bits are zero). */
@@ -192,6 +185,7 @@ final class TypeID implements JsonSerializable, Stringable
     }
 
     /** Enables native json_encode() support — serializes as the canonical string form. */
+    #[Override]
     public function jsonSerialize(): string
     {
         return $this->toString();
