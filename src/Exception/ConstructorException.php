@@ -6,5 +6,5 @@ namespace TypeID\Exception;
 
 use RuntimeException;
 
-/** Thrown when a TypeID cannot be constructed from the given input. */
+/** Thrown when TypeID generation fails operationally. */
 final class ConstructorException extends RuntimeException implements TypeIDException {}
