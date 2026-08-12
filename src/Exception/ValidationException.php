@@ -6,5 +6,5 @@ namespace TypeID\Exception;
 
 use InvalidArgumentException;
 
-/** Thrown when a TypeID prefix or suffix fails spec validation. */
+/** Thrown when caller input fails TypeID validation. */
 final class ValidationException extends InvalidArgumentException implements TypeIDException {}

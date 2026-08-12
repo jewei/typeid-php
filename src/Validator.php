@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace TypeID;
 
-use InvalidArgumentException;
+use TypeID\Exception\ValidationException;
 
 /**
  * Stateless validation helpers for TypeID components.
@@ -14,8 +14,6 @@ use InvalidArgumentException;
  */
 final class Validator
 {
-    private const int MAX_PREFIX_LENGTH = 63;
-
     /**
      * Prefix rules: lowercase a-z only; may contain underscores but not at
      * the start or end; max 63 chars. Empty string is valid (no prefix).
@@ -32,10 +30,7 @@ final class Validator
 
     public static function isValidPrefix(string $prefix): bool
     {
-        return $prefix === '' || (
-            strlen($prefix) <= self::MAX_PREFIX_LENGTH &&
-            (bool) preg_match(self::PREFIX_PATTERN, $prefix)
-        );
+        return preg_match(self::PREFIX_PATTERN, $prefix) === 1;
     }
 
     /**
@@ -54,40 +49,28 @@ final class Validator
      *
      * @return array{0: string, 1: string}
      *
-     * @throws InvalidArgumentException
+     * @throws ValidationException
      */
     public static function parseTypeID(string $value): array
     {
         if ($value === '') {
-            throw new InvalidArgumentException('TypeID string cannot be empty');
+            throw new ValidationException('TypeID string cannot be empty');
+        }
+
+        if (str_starts_with($value, '_')) {
+            throw new ValidationException('TypeID string cannot start with an underscore');
         }
 
         $lastUnderscore = strrpos($value, '_');
 
-        if ($lastUnderscore === 0) {
-            throw new InvalidArgumentException('TypeID string cannot start with an underscore');
-        }
-
         if ($lastUnderscore === false) {
-            if (! self::isValidSuffix($value)) {
-                throw new InvalidArgumentException('Invalid TypeID suffix: '.$value);
-            }
-
             return ['', $value];
         }
 
-        $prefix = substr($value, 0, $lastUnderscore);
-        $suffix = substr($value, $lastUnderscore + 1);
-
-        if (! self::isValidPrefix($prefix)) {
-            throw new InvalidArgumentException('Invalid TypeID prefix: '.$prefix);
-        }
-
-        if (! self::isValidSuffix($suffix)) {
-            throw new InvalidArgumentException('Invalid TypeID suffix: '.$suffix);
-        }
-
-        return [$prefix, $suffix];
+        return [
+            substr($value, 0, $lastUnderscore),
+            substr($value, $lastUnderscore + 1),
+        ];
     }
 
     /** Accepts UUID with or without dashes, case-insensitive. */
@@ -96,25 +79,12 @@ final class Validator
         return preg_match(self::UUID_PATTERN, $uuid) === 1;
     }
 
-    /**
-     * Validates UUIDv7 structure:
-     * - hex[12] must be '7'          → version bits (48-51) = 0111
-     * - hex[16] must be 8/9/a/b      → variant bits (64-65) = 10xx  (RFC 4122)
-     */
-    public static function isValidUuidv7(string $uuid): bool
+    public static function formatForMessage(string $value): string
     {
-        if (! self::isValidUuid($uuid)) {
-            return false;
-        }
+        $escaped = addcslashes($value, "\0..\37");
 
-        $hex = strtolower(str_replace('-', '', $uuid));
-
-        return $hex[12] === '7' && in_array($hex[16], ['8', '9', 'a', 'b'], strict: true);
-    }
-
-    /** Alias for isValidSuffix — used internally by Base32. */
-    public static function isValidBase32(string $base32): bool
-    {
-        return self::isValidSuffix($base32);
+        return strlen($escaped) > 64
+            ? substr($escaped, 0, 64).'...'
+            : $escaped;
     }
 }

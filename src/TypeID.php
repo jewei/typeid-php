@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace TypeID;
 
-use Exception;
-use InvalidArgumentException;
 use JsonSerializable;
 use Override;
+use Ramsey\Uuid\Exception\UuidExceptionInterface;
 use Ramsey\Uuid\Uuid;
 use Stringable;
 use TypeID\Exception\ConstructorException;
@@ -35,11 +34,15 @@ final class TypeID implements JsonSerializable, Stringable
         public readonly string $suffix, // Crockford base32 UUID payload — always exactly 26 lowercase characters.
     ) {
         if (! Validator::isValidPrefix($this->prefix)) {
-            throw new ValidationException("Invalid prefix: {$this->prefix}");
+            throw new ValidationException(
+                'Invalid prefix: '.Validator::formatForMessage($this->prefix)
+            );
         }
 
         if (! Validator::isValidSuffix($this->suffix)) {
-            throw new ValidationException("Invalid suffix: {$this->suffix}");
+            throw new ValidationException(
+                'Invalid suffix: '.Validator::formatForMessage($this->suffix)
+            );
         }
     }
 
@@ -49,45 +52,52 @@ final class TypeID implements JsonSerializable, Stringable
         return $this->toString();
     }
 
+    /** @return array{prefix: string, suffix: string} */
+    public function __serialize(): array
+    {
+        return [
+            'prefix' => $this->prefix,
+            'suffix' => $this->suffix,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     *
+     * @throws ValidationException If the serialized data is malformed or invalid.
+     */
+    public function __unserialize(array $data): void
+    {
+        if (! is_string($data['prefix'] ?? null) || ! is_string($data['suffix'] ?? null)) {
+            throw new ValidationException('Invalid serialized TypeID data');
+        }
+
+        $validated = new self($data['prefix'], $data['suffix']);
+
+        $this->prefix = $validated->prefix;
+        $this->suffix = $validated->suffix;
+    }
+
     /**
      * Create a TypeID from any valid UUID string (v4, v7, nil, …).
      * Uppercase hex is accepted and normalized to lowercase.
      *
-     * @throws ConstructorException If $uuid is not a valid UUID string.
-     * @throws ValidationException If $prefix fails spec validation.
+     * @throws ValidationException If $uuid or $prefix fails validation.
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
-        try {
-            $suffix = Base32::encode($uuid);
-        } catch (InvalidArgumentException $e) {
-            throw new ConstructorException(
-                'Failed to create TypeID from UUID: '.$e->getMessage(),
-                previous: $e,
-            );
-        }
-
-        return new self($prefix ?? '', $suffix);
+        return new self($prefix ?? '', Base32::encode($uuid));
     }
 
     /**
      * Create a TypeID from a prefix and raw 16-byte binary UUID.
      * Useful for round-tripping UUIDs stored as binary(16) in a database.
      *
-     * @throws ConstructorException If $bytes is not exactly 16 bytes.
-     * @throws ValidationException If $prefix fails spec validation.
+     * @throws ValidationException If $bytes or $prefix fails validation.
      */
     public static function fromBytes(string $bytes, ?string $prefix = null): self
     {
-        if (strlen($bytes) !== 16) {
-            throw new ConstructorException(
-                'UUID bytes must be exactly 16 bytes, got '.strlen($bytes)
-            );
-        }
-
-        $uuid = Uuid::fromBytes($bytes)->toString();
-
-        return self::fromUuid($uuid, $prefix);
+        return new self($prefix ?? '', Base32::encodeBytes($bytes));
     }
 
     /**
@@ -95,20 +105,13 @@ final class TypeID implements JsonSerializable, Stringable
      * Accepts prefixed ('user_01jsnsf2g7…') and bare ('01jsnsf2g7…') forms.
      * The last underscore is always the prefix/suffix delimiter.
      *
-     * @throws ConstructorException If $value is empty, malformed, or fails spec validation.
+     * @throws ValidationException If $value is malformed or fails spec validation.
      */
     public static function fromString(string $value): self
     {
-        try {
-            [$prefix, $suffix] = Validator::parseTypeID($value);
+        [$prefix, $suffix] = Validator::parseTypeID($value);
 
-            return new self($prefix, $suffix);
-        } catch (InvalidArgumentException $e) {
-            throw new ConstructorException(
-                'Failed to create TypeID from string: '.$e->getMessage(),
-                previous: $e,
-            );
-        }
+        return new self($prefix, $suffix);
     }
 
     /**
@@ -123,14 +126,14 @@ final class TypeID implements JsonSerializable, Stringable
     {
         try {
             $uuid = Uuid::uuid7()->toString();
-        } catch (Exception $e) {
+        } catch (UuidExceptionInterface $e) {
             throw new ConstructorException(
                 'Failed to generate TypeID: '.$e->getMessage(),
                 previous: $e,
             );
         }
 
-        return self::fromUuid($uuid, $prefix ?? '');
+        return self::fromUuid($uuid, $prefix);
     }
 
     /**
@@ -159,7 +162,7 @@ final class TypeID implements JsonSerializable, Stringable
     /** Decode the suffix to raw 16-byte binary — useful for binary(16) database columns. */
     public function bytes(): string
     {
-        return Uuid::fromString($this->toUuid())->getBytes();
+        return Base32::decodeBytes($this->suffix);
     }
 
     /** True when this TypeID represents the nil UUID (all 128 bits are zero). */
@@ -172,16 +175,6 @@ final class TypeID implements JsonSerializable, Stringable
     public function isNonZero(): bool
     {
         return ! $this->isZero();
-    }
-
-    /**
-     * True when this TypeID has a non-zero suffix.
-     *
-     * @deprecated Use isNonZero() instead; every TypeID has a suffix.
-     */
-    public function hasSuffix(): bool
-    {
-        return $this->isNonZero();
     }
 
     /** True when this TypeID's prefix exactly matches $prefix (case-sensitive). */

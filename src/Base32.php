@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace TypeID;
 
-use InvalidArgumentException;
+use TypeID\Exception\ValidationException;
 
 /**
  * Crockford base32 encoder/decoder for TypeID suffixes.
@@ -49,28 +49,35 @@ final class Base32
     /**
      * Encode a UUID string to a 26-char Crockford base32 suffix.
      *
-     * @throws InvalidArgumentException If $uuid is not a valid UUID.
+     * @throws ValidationException If $uuid is not a valid UUID.
      */
     public static function encode(string $uuid): string
     {
         if (! Validator::isValidUuid($uuid)) {
-            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
+            throw new ValidationException(
+                'Invalid UUID string: '.Validator::formatForMessage($uuid)
+            );
         }
 
-        $binary = hex2bin(str_replace('-', '', strtolower($uuid)));
+        return self::encodeBytes(hex2bin(str_replace('-', '', strtolower($uuid))));
+    }
 
-        if ($binary === false) {
-            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
+    /**
+     * Encode 16 raw UUID bytes to a 26-char Crockford base32 suffix.
+     *
+     * @throws ValidationException If $bytes is not exactly 16 bytes.
+     */
+    public static function encodeBytes(string $bytes): string
+    {
+        if (strlen($bytes) !== 16) {
+            throw new ValidationException(
+                'UUID bytes must be exactly 16 bytes, got '.strlen($bytes)
+            );
         }
 
-        $bytes = unpack('C*', $binary);
-
-        if ($bytes === false) {
-            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
-        }
-
-        /** @var int[] $b */
-        $b = array_values($bytes);
+        /** @var array<int, int> $unpacked */
+        $unpacked = unpack('C*', $bytes);
+        $b = array_values($unpacked);
 
         $a = self::ALPHABET;
 
@@ -107,18 +114,38 @@ final class Base32
      * Decode a 26-char Crockford base32 suffix to its canonical UUID string.
      * Input is strict: lowercase only, with no ambiguous Crockford characters.
      *
-     * @throws InvalidArgumentException If $base32 is not a valid 26-char Crockford string.
+     * @throws ValidationException If $base32 is not a valid 26-char Crockford string.
      */
     public static function decode(string $base32): string
     {
-        if (! Validator::isValidBase32($base32)) {
-            throw new InvalidArgumentException('Invalid TypeID base32 string: '.$base32);
+        $hex = bin2hex(self::decodeBytes($base32));
+
+        return sprintf('%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12),
+        );
+    }
+
+    /**
+     * Decode a 26-char Crockford base32 suffix to 16 raw UUID bytes.
+     *
+     * @throws ValidationException If $base32 is not a valid TypeID suffix.
+     */
+    public static function decodeBytes(string $base32): string
+    {
+        if (! Validator::isValidSuffix($base32)) {
+            throw new ValidationException(
+                'Invalid TypeID base32 string: '.Validator::formatForMessage($base32)
+            );
         }
 
         $m = self::DECODE_MAP;
         $v = array_map(fn (string $ch): int => $m[$ch], str_split($base32));
 
-        $hex = bin2hex(pack('C*',
+        return pack('C*',
             $v[0] << 5 | $v[1],
             $v[2] << 3 | $v[3] >> 2,
             ($v[3] & 0x03) << 6 | $v[4] << 1 | $v[5] >> 4,
@@ -135,14 +162,6 @@ final class Base32
             ($v[21] & 0x0F) << 4 | $v[22] >> 1,
             ($v[22] & 0x01) << 7 | $v[23] << 2 | $v[24] >> 3,
             ($v[24] & 0x07) << 5 | $v[25],
-        ));
-
-        return sprintf('%s-%s-%s-%s-%s',
-            substr($hex, 0, 8),
-            substr($hex, 8, 4),
-            substr($hex, 12, 4),
-            substr($hex, 16, 4),
-            substr($hex, 20, 12),
         );
     }
 }

@@ -60,7 +60,7 @@ $b = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
 echo $a->equals($b); // true
 
 // Round-trip a UUID stored in a binary(16) database column
-$uuidBytes = random_bytes(16);
+$uuidBytes = TypeID::generate('user')->bytes();
 $binaryId = TypeID::fromBytes($uuidBytes, 'user');
 $uuidBytes = $binaryId->bytes();
 ```
@@ -69,7 +69,7 @@ The package uses `ramsey/uuid` to generate standards-compliant UUIDv7 values. En
 
 `fromUuid()` also accepts valid non-v7 UUIDs for interoperability. Those imported values—and the nil value returned by `zero()`—do not gain UUIDv7 chronological ordering merely by being encoded as TypeIDs.
 
-All package exceptions implement `TypeID\Exception\TypeIDException`, allowing callers to catch construction and validation failures through one stable contract.
+Caller-invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. `TypeID\Exception\ConstructorException` is reserved for UUID generation failures. Both implement `TypeID\Exception\TypeIDException`.
 
 ## Format
 
