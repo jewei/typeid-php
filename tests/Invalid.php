@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
-use Exception;
+use TypeID\Exception\ConstructorException;
 use TypeID\TypeID;
 
-$invalidCases = json_decode(file_get_contents(__DIR__.'/../spec/invalid.json'), true);
+$invalidJson = file_get_contents(__DIR__.'/../spec/invalid.json');
+
+if ($invalidJson === false) {
+    throw new \RuntimeException('Unable to read invalid TypeID fixtures');
+}
+
+$invalidCases = json_decode($invalidJson, true, flags: JSON_THROW_ON_ERROR);
 
 dataset('invalid typeids', array_combine(
     array_column($invalidCases, 'name'),
@@ -13,5 +19,5 @@ dataset('invalid typeids', array_combine(
 ));
 
 test('reject invalid typeids', function (string $typeid): void {
-    expect(fn () => TypeID::fromString($typeid))->toThrow(Exception::class);
+    expect(fn () => TypeID::fromString($typeid))->toThrow(ConstructorException::class);
 })->with('invalid typeids');

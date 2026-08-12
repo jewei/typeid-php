@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 use TypeID\TypeID;
 
-$validCases = json_decode(file_get_contents(__DIR__.'/../spec/valid.json'), true);
+$validJson = file_get_contents(__DIR__.'/../spec/valid.json');
+
+if ($validJson === false) {
+    throw new \RuntimeException('Unable to read valid TypeID fixtures');
+}
+
+$validCases = json_decode($validJson, true, flags: JSON_THROW_ON_ERROR);
 
 dataset('valid typeids', array_combine(
     array_column($validCases, 'name'),

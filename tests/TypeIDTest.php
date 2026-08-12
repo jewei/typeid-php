@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use InvalidArgumentException;
 use TypeID\Base32;
 use TypeID\Exception\ConstructorException;
+use TypeID\Exception\TypeIDException;
 use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 use TypeID\Validator;
@@ -194,7 +194,7 @@ test('Base32 encode and decode roundtrip', function (): void {
 
 test('Base32 encode with malformed UUID throws exception', function (): void {
     expect(fn () => Base32::encode('not-a-uuid'))
-        ->toThrow(InvalidArgumentException::class, 'Invalid UUID string: not-a-uuid');
+        ->toThrow(\InvalidArgumentException::class, 'Invalid UUID string: not-a-uuid');
 });
 
 test('Base32 encode with valid non-UUIDv7 succeeds', function (): void {
@@ -212,13 +212,20 @@ test('Base32 decode with zero suffix', function (): void {
 
 test('Base32 decode with invalid characters throws exception', function (): void {
     expect(fn () => Base32::decode('ill3g4l-ch4r4ct3rs-in-b4s332'))
-        ->toThrow(InvalidArgumentException::class, 'Invalid TypeID base32 string: ill3g4l-ch4r4ct3rs-in-b4s332');
+        ->toThrow(\InvalidArgumentException::class, 'Invalid TypeID base32 string: ill3g4l-ch4r4ct3rs-in-b4s332');
 });
 
 test('Base32 decode with wrong length throws exception', function (): void {
     expect(fn () => Base32::decode('tooshort'))
-        ->toThrow(InvalidArgumentException::class, 'Invalid TypeID base32 string: tooshort');
+        ->toThrow(\InvalidArgumentException::class, 'Invalid TypeID base32 string: tooshort');
 });
+
+test('Base32 decode rejects non-canonical Crockford input', function (string $suffix): void {
+    expect(fn () => Base32::decode($suffix))->toThrow(\InvalidArgumentException::class);
+})->with([
+    'uppercase' => '01JsNsF2g7E2sAxDjVz3J6tC3x',
+    'ambiguous characters' => '0Ijsnsf2g7e2saxdjvz3jltc3x',
+]);
 
 // ===== Validator Tests =====
 
@@ -284,7 +291,7 @@ test('Validator parseTypeID with valid TypeIDs', function (string $typeId, array
 
 test('Validator parseTypeID with invalid TypeIDs throws exception', function (string $typeId): void {
     expect(fn () => Validator::parseTypeID($typeId))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(\InvalidArgumentException::class);
 })->with([
     '',
     'invalid-typeid',
@@ -311,6 +318,9 @@ test('Validator isValidUuid with invalid UUIDs', function (string $uuid): void {
     '01966b97-8a07-70b2-aeb6-5bf8e46d307', // Too short
     '01966b97-8a07-70b2-aeb6-5bf8e46d307d0', // Too long
     '01966b97-8a07-70b2-aebz-5bf8e46d307d', // Invalid char
+    '01966b97-8a0770b2-aeb6-5bf8e46d307d', // Partially dashed
+    '01966b978a07-70b2aeb6-5bf8e46d307d', // Inconsistently dashed
+    "01966b97-8a07-70b2-aeb6-5bf8e46d307d\n", // Trailing newline
 ]);
 
 test('Validator isValidUuidv7 with valid UUIDv7s', function (string $uuid): void {
@@ -348,24 +358,6 @@ test('TypeID roundtrip with various prefixes and UUIDs', function (string $prefi
     ['very_long_prefix_with_underscores', '01966b97-8a07-70b2-aeb6-5bf8e46d307d'],
     ['a', '01966b97-8a07-70b2-aeb6-5bf8e46d307d'],
 ]);
-
-test('case normalization in Base32 decode', function (): void {
-    // Mixed case input should be normalized
-    $mixedCase = '01JsNsF2g7E2sAxDjVz3J6tC3x';
-    $normalized = strtolower($mixedCase);
-
-    $uuid = Base32::decode($mixedCase);
-    expect($uuid)->toBe(Base32::decode($normalized));
-});
-
-test('ambiguous character handling in Base32 decode', function (): void {
-    // Replace ambiguous characters: O->0, I/L->1
-    $withAmbiguous = '0IJsNsF2g7E2sAxDjVz3JLtC3x'; // Contains O, I, L
-    $normalized = '01jsnsf2g7e2saxdjvz3j1tc3x';   // Should convert to 0, 1, 1
-
-    $uuid = Base32::decode($withAmbiguous);
-    expect($uuid)->toBe(Base32::decode($normalized));
-});
 
 test('multiple underscores in TypeID handling', function (): void {
     $typeIdWithMultipleUnderscores = 'user_profile_01jsnsf2g7e2saxdjvz3j6tc3x';
@@ -458,6 +450,66 @@ test('ConstructorException from invalid UUID preserves previous exception', func
         TypeID::fromUuid('not-a-uuid', 'user');
         expect(false)->toBeTrue(); // should not reach here
     } catch (ConstructorException $e) {
-        expect($e->getPrevious())->toBeInstanceOf(InvalidArgumentException::class);
+        expect($e->getPrevious())->toBeInstanceOf(\InvalidArgumentException::class);
     }
+});
+
+test('all package exceptions share a catchable domain contract', function (): void {
+    foreach ([
+        fn () => TypeID::fromUuid('not-a-uuid'),
+        fn () => new TypeID('INVALID', TypeID::ZERO_SUFFIX),
+    ] as $operation) {
+        try {
+            $operation();
+        } catch (TypeIDException $exception) {
+            expect($exception)->toBeInstanceOf(TypeIDException::class);
+
+            continue;
+        }
+
+        throw new \RuntimeException('Expected a TypeID exception');
+    }
+});
+
+test('validation rejects final newlines without leaking native errors', function (): void {
+    $shortSuffixWithNewline = str_repeat('0', 25)."\n";
+
+    expect(Validator::isValidPrefix("user\n"))->toBeFalse();
+    expect(Validator::isValidSuffix($shortSuffixWithNewline))->toBeFalse();
+    expect(fn () => TypeID::fromString($shortSuffixWithNewline))->toThrow(ConstructorException::class);
+    expect(fn () => TypeID::fromUuid("01966b97-8a07-70b2-aeb6-5bf8e46d307d\n"))
+        ->toThrow(ConstructorException::class);
+    expect(fn () => TypeID::fromUuid('01966b97-8a0770b2-aeb6-5bf8e46d307d'))
+        ->toThrow(ConstructorException::class);
+});
+
+test('binary conversion roundtrips all byte values', function (): void {
+    $bytes = implode('', array_map(chr(...), range(0, 15)));
+    $typeId = TypeID::fromBytes($bytes, 'binary');
+
+    expect($typeId->prefix)->toBe('binary');
+    expect($typeId->bytes())->toBe($bytes);
+});
+
+test('fromBytes rejects values that are not exactly 16 bytes', function (string $bytes): void {
+    expect(fn () => TypeID::fromBytes($bytes))->toThrow(ConstructorException::class);
+})->with([
+    'too short' => str_repeat("\0", 15),
+    'too long' => str_repeat("\0", 17),
+]);
+
+test('JSON serialization uses the canonical TypeID string', function (): void {
+    $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
+
+    expect(json_encode($typeId, JSON_THROW_ON_ERROR))->toBe('"user_01jsnsf2g7e2saxdjvz3j6tc3x"');
+});
+
+test('non-zero helpers distinguish nil and populated suffixes', function (): void {
+    $zero = TypeID::zero('user');
+    $nonZero = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
+
+    expect($zero->isNonZero())->toBeFalse()
+        ->and($zero->hasSuffix())->toBeFalse()
+        ->and($nonZero->isNonZero())->toBeTrue()
+        ->and($nonZero->hasSuffix())->toBeTrue();
 });

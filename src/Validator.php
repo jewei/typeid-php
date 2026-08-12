@@ -9,23 +9,24 @@ use InvalidArgumentException;
 /**
  * Stateless validation helpers for TypeID components.
  * All methods are static — this class is not meant to be instantiated.
+ *
+ * @internal Use TypeID for the stable public API.
  */
 final class Validator
 {
     private const int MAX_PREFIX_LENGTH = 63;
-    private const int SUFFIX_LENGTH = 26;
 
     /**
      * Prefix rules: lowercase a-z only; may contain underscores but not at
      * the start or end; max 63 chars. Empty string is valid (no prefix).
      */
-    private const string PREFIX_PATTERN = '/^([a-z]([a-z_]{0,61}[a-z])?)?$/';
+    private const string PREFIX_PATTERN = '/\A(?:[a-z](?:[a-z_]{0,61}[a-z])?)?\z/';
 
-    /** Crockford base32 alphabet: 0-9 and a-z minus i, l, o, u. */
-    private const string SUFFIX_PATTERN = '/^[0123456789abcdefghjkmnpqrstvwxyz]+$/';
+    /** Exactly 128 bits encoded with the strict TypeID base32 alphabet. */
+    private const string SUFFIX_PATTERN = '/\A[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}\z/';
 
-    /** Standard UUID format with or without dashes, case-insensitive. */
-    private const string UUID_PATTERN = '/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i';
+    /** Canonical UUID format, or the same 32 hexadecimal digits without dashes. */
+    private const string UUID_PATTERN = '/\A(?:[0-9a-f]{32}|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\z/i';
 
     private function __construct() {}
 
@@ -44,9 +45,7 @@ final class Validator
      */
     public static function isValidSuffix(string $suffix): bool
     {
-        return strlen($suffix) === self::SUFFIX_LENGTH
-            && (bool) preg_match(self::SUFFIX_PATTERN, $suffix)
-            && strcmp($suffix, '7zzzzzzzzzzzzzzzzzzzzzzzzz') <= 0;
+        return preg_match(self::SUFFIX_PATTERN, $suffix) === 1;
     }
 
     /**

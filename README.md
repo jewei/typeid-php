@@ -14,10 +14,10 @@ TypeIDs extend UUIDv7 with a type prefix, giving you better ergonomics for datab
 ## Features
 
 - **Type-safe** — prefix encodes the entity type, preventing ID mix-ups across types
-- **K-sortable** — UUIDv7 timestamp in the high bits means IDs sort chronologically
+- **K-sortable when generated** — generated IDs with the same prefix sort chronologically via UUIDv7
 - **Compact** — 26-char Crockford base32 suffix vs 36 chars for a standard UUID string
 - **URL-safe** — only `[a-z0-9_]` characters, no encoding needed
-- **Zero dependencies** — pure bit manipulation, no GMP or bcmath required
+- **No math extensions** — base32 uses pure bit manipulation, with no GMP or bcmath requirement
 
 ## Requirements
 
@@ -52,12 +52,24 @@ echo $id; // invoice_01jsnsf2g7e2saxdjvz3j6tc3x
 // Zero/nil TypeID — useful as a sentinel value
 $zero = TypeID::zero('user');
 echo $zero->isZero(); // true
+echo $zero->isNonZero(); // false
 
 // Equality check
 $a = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
 $b = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
 echo $a->equals($b); // true
+
+// Round-trip a UUID stored in a binary(16) database column
+$uuidBytes = random_bytes(16);
+$binaryId = TypeID::fromBytes($uuidBytes, 'user');
+$uuidBytes = $binaryId->bytes();
 ```
+
+The package uses `ramsey/uuid` to generate standards-compliant UUIDv7 values. Encoding and decoding are implemented locally without optional math extensions.
+
+`fromUuid()` also accepts valid non-v7 UUIDs for interoperability. Those imported values—and the nil value returned by `zero()`—do not gain UUIDv7 chronological ordering merely by being encoded as TypeIDs.
+
+All package exceptions implement `TypeID\Exception\TypeIDException`, allowing callers to catch construction and validation failures through one stable contract.
 
 ## Format
 

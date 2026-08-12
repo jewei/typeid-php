@@ -25,14 +25,13 @@ use InvalidArgumentException;
  *   c[ 7] = (b[4]>>2)&0x1F                  bits  94- 90
  *   c[ 8] = (b[4]&0x03)<<3 | b[5]>>5        bits  89- 85
  *   c[ 9] = b[5]&0x1F                       bits  84- 80
- *   … the same 10-char / 8-byte pattern repeats for bytes 6-15 → chars 10-25
+ *   … chars 2-25 repeat an 8-char / 5-byte pattern three times.
+ *
+ * @internal Use TypeID for the stable public API.
  */
 final class Base32
 {
     private const string ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
-
-    /** Crockford allows O→0, I→1, L→1 to prevent misreading. */
-    private const array NORMALIZE_MAP = ['o' => '0', 'i' => '1', 'l' => '1'];
 
     /** Reverse lookup: Crockford char → 5-bit integer value. */
     private const array DECODE_MAP = [
@@ -58,8 +57,20 @@ final class Base32
             throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
         }
 
+        $binary = hex2bin(str_replace('-', '', strtolower($uuid)));
+
+        if ($binary === false) {
+            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
+        }
+
+        $bytes = unpack('C*', $binary);
+
+        if ($bytes === false) {
+            throw new InvalidArgumentException('Invalid UUID string: '.$uuid);
+        }
+
         /** @var int[] $b */
-        $b = array_values(unpack('C*', hex2bin(str_replace('-', '', strtolower($uuid)))));
+        $b = array_values($bytes);
 
         $a = self::ALPHABET;
 
@@ -94,17 +105,14 @@ final class Base32
 
     /**
      * Decode a 26-char Crockford base32 suffix to its canonical UUID string.
-     * Normalizes input: lowercase, and O/I/L are mapped to 0/1/1.
+     * Input is strict: lowercase only, with no ambiguous Crockford characters.
      *
      * @throws InvalidArgumentException If $base32 is not a valid 26-char Crockford string.
      */
     public static function decode(string $base32): string
     {
-        $original = $base32;
-        $base32 = strtr(strtolower($base32), self::NORMALIZE_MAP);
-
         if (! Validator::isValidBase32($base32)) {
-            throw new InvalidArgumentException('Invalid TypeID base32 string: '.$original);
+            throw new InvalidArgumentException('Invalid TypeID base32 string: '.$base32);
         }
 
         $m = self::DECODE_MAP;

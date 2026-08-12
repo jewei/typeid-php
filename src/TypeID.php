@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TypeID;
 
 use Exception;
+use InvalidArgumentException;
 use JsonSerializable;
 use Override;
 use Ramsey\Uuid\Uuid;
@@ -13,14 +14,15 @@ use TypeID\Exception\ConstructorException;
 use TypeID\Exception\ValidationException;
 
 /**
- * A TypeID: a type-safe, K-sortable, globally-unique identifier.
+ * A TypeID value. Values created by generate() are type-safe, K-sortable,
+ * and globally unique.
  *
  * Format: {prefix}_{suffix}  e.g. user_01jsnsf2g7e2saxdjvz3j6tc3x
  *
  * - prefix  → lowercase entity type label (0–63 chars, e.g. 'user', 'order')
- * - suffix  → 26-char Crockford base32-encoded UUID (K-sortable via UUIDv7)
+ * - suffix  → 26-char Crockford base32-encoded UUID
  *
- * @see https://github.com/jetpack-io/typeid
+ * @see https://github.com/jetify-com/typeid
  */
 final class TypeID implements JsonSerializable, Stringable
 {
@@ -58,7 +60,7 @@ final class TypeID implements JsonSerializable, Stringable
     {
         try {
             $suffix = Base32::encode($uuid);
-        } catch (Exception $e) {
+        } catch (InvalidArgumentException $e) {
             throw new ConstructorException(
                 'Failed to create TypeID from UUID: '.$e->getMessage(),
                 previous: $e,
@@ -101,7 +103,7 @@ final class TypeID implements JsonSerializable, Stringable
             [$prefix, $suffix] = Validator::parseTypeID($value);
 
             return new self($prefix, $suffix);
-        } catch (Exception $e) {
+        } catch (InvalidArgumentException $e) {
             throw new ConstructorException(
                 'Failed to create TypeID from string: '.$e->getMessage(),
                 previous: $e,
@@ -112,7 +114,7 @@ final class TypeID implements JsonSerializable, Stringable
     /**
      * Generate a new TypeID backed by a fresh UUIDv7.
      * UUIDv7 encodes a millisecond timestamp in the high bits, making
-     * generated TypeIDs naturally K-sortable by creation time.
+     * generated TypeIDs with the same prefix sortable by creation time.
      *
      * @throws ConstructorException If UUIDv7 generation fails.
      * @throws ValidationException If $prefix fails spec validation.
@@ -167,9 +169,19 @@ final class TypeID implements JsonSerializable, Stringable
     }
 
     /** True when this TypeID has a non-zero suffix (i.e. not the nil UUID). */
+    public function isNonZero(): bool
+    {
+        return ! $this->isZero();
+    }
+
+    /**
+     * True when this TypeID has a non-zero suffix.
+     *
+     * @deprecated Use isNonZero() instead; every TypeID has a suffix.
+     */
     public function hasSuffix(): bool
     {
-        return $this->suffix !== self::ZERO_SUFFIX;
+        return $this->isNonZero();
     }
 
     /** True when this TypeID's prefix exactly matches $prefix (case-sensitive). */
