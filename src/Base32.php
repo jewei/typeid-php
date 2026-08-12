@@ -9,10 +9,6 @@ use TypeID\Exception\ValidationException;
 /**
  * Crockford base32 encoder/decoder for TypeID suffixes.
  *
- * Converts a 128-bit UUID to/from a 26-character string using Crockford's
- * alphabet (0-9, a-z minus i, l, o, u). Pure bit manipulation — no GMP
- * or bcmath required.
- *
  * Bit layout — 16 UUID bytes (128 bits) → 26 × 5-bit chars:
  *
  *   c[ 0] = b[0]>>5                         bits 127-125  (top 2 always 0 → max char is '7')
@@ -33,7 +29,6 @@ final class Base32
 {
     private const string ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 
-    /** Reverse lookup: Crockford char → 5-bit integer value. */
     private const array DECODE_MAP = [
         '0' => 0,  '1' => 1,  '2' => 2,  '3' => 3,  '4' => 4,
         '5' => 5,  '6' => 6,  '7' => 7,  '8' => 8,  '9' => 9,
@@ -75,8 +70,12 @@ final class Base32
             );
         }
 
-        /** @var array<int, int> $unpacked */
         $unpacked = unpack('C*', $bytes);
+
+        if ($unpacked === false) {
+            throw new ValidationException('Failed to unpack UUID bytes');
+        }
+
         $b = array_values($unpacked);
 
         $a = self::ALPHABET;

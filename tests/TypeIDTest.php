@@ -8,8 +8,6 @@ use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 use TypeID\Validator;
 
-// ===== TypeID Creation and Parsing Tests =====
-
 test('create TypeID with valid prefix and suffix', function (): void {
     $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId->prefix)->toBe('user');
@@ -45,8 +43,6 @@ test('TypeID string representation works with toString and stringification', fun
     expect($typeId->toString())->toBe('user_01jsnsf2g7e2saxdjvz3j6tc3x');
     expect((string) $typeId)->toBe('user_01jsnsf2g7e2saxdjvz3j6tc3x');
 });
-
-// ===== TypeID Factory Methods Tests =====
 
 test('generate random TypeID with prefix', function (): void {
     $typeId = TypeID::generate('user');
@@ -107,8 +103,6 @@ test('zero with invalid prefix throws exception', function (): void {
         ->toThrow(ValidationException::class, 'Invalid prefix: Invalid-Prefix');
 });
 
-// ===== TypeID Conversion Tests =====
-
 test('fromString with valid TypeID string', function (): void {
     $typeId = TypeID::fromString('user_01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($typeId)->toBeInstanceOf(TypeID::class);
@@ -155,7 +149,6 @@ test('fromUuid with invalid UUID throws exception', function (): void {
 });
 
 test('fromUuid with non-UUIDv7 succeeds', function (): void {
-    // UUIDv4 should now encode successfully
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
     $typeId = TypeID::fromUuid($uuidv4, 'user');
     expect($typeId)->toBeInstanceOf(TypeID::class);
@@ -167,8 +160,6 @@ test('toUuid converts TypeID to original UUID', function (): void {
     $typeId = TypeID::fromUuid($uuid, 'user');
     expect($typeId->toUuid())->toBe($uuid);
 });
-
-// ===== TypeID Comparison Methods Tests =====
 
 test('TypeID equals with identical TypeIDs', function (): void {
     $typeId1 = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
@@ -198,8 +189,6 @@ test('TypeID hasPrefix returns false for non-matching prefix', function (): void
     expect($typeId->hasPrefix('post'))->toBeFalse();
 });
 
-// ===== Base32 Encoding/Decoding Tests =====
-
 test('Base32 encode and decode roundtrip', function (): void {
     $uuid = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
     $encoded = Base32::encode($uuid);
@@ -227,7 +216,6 @@ test('Base32 encode with malformed UUID throws exception', function (): void {
 });
 
 test('Base32 encode with valid non-UUIDv7 succeeds', function (): void {
-    // UUIDv4 should encode successfully
     $uuidv4 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
     $encoded = Base32::encode($uuidv4);
     expect($encoded)->toHaveLength(26);
@@ -256,8 +244,6 @@ test('Base32 decode rejects non-canonical Crockford input', function (string $su
     'ambiguous characters' => '0Ijsnsf2g7e2saxdjvz3jltc3x',
 ]);
 
-// ===== Validator Tests =====
-
 test('Validator isValidPrefix with valid prefixes', function (string $prefix): void {
     expect(Validator::isValidPrefix($prefix))->toBeTrue();
 })->with([
@@ -270,7 +256,7 @@ test('Validator isValidPrefix with valid prefixes', function (string $prefix): v
     'a_b_c',
     'prefix_with_underscore',
     'multiple__underscores',
-    str_repeat('a', 63), // Max length
+    str_repeat('a', 63),
 ]);
 
 test('Validator isValidPrefix with invalid prefixes', function (string $prefix): void {
@@ -288,7 +274,7 @@ test('Validator isValidPrefix with invalid prefixes', function (string $prefix):
     '_prefix',
     'prefix_',
     '__prefix',
-    str_repeat('a', 64), // Too long
+    str_repeat('a', 64),
 ]);
 
 test('Validator isValidSuffix with valid suffixes', function (string $suffix): void {
@@ -301,12 +287,12 @@ test('Validator isValidSuffix with valid suffixes', function (string $suffix): v
 test('Validator isValidSuffix with invalid suffixes', function (string $suffix): void {
     expect(Validator::isValidSuffix($suffix))->toBeFalse();
 })->with([
-    '0',
-    str_repeat('0', 25), // Too short
-    str_repeat('0', 27), // Too long
-    '01jsnsf2g7e2saxdjvOILz3j6tc', // Contains invalid chars O, I, L
-    '01jsnsf2g7e2saxdjvz3j6tc3X', // Contains uppercase
-    '01JSNSF2G7E2SAXDJVZ3J6TC3X', // Contains uppercase only
+    'too short single' => '0',
+    'too short 25' => str_repeat('0', 25),
+    'too long 27' => str_repeat('0', 27),
+    'invalid chars OIL' => '01jsnsf2g7e2saxdjvOILz3j6tc',
+    'trailing uppercase' => '01jsnsf2g7e2saxdjvz3j6tc3X',
+    'all uppercase' => '01JSNSF2G7E2SAXDJVZ3J6TC3X',
 ]);
 
 test('Validator parseTypeID with valid TypeIDs', function (string $typeId, array $expected): void {
@@ -342,10 +328,10 @@ test('Validator parseTypeID leaves component validation to TypeID', function (
 test('Validator isValidUuid with valid UUIDs', function (string $uuid): void {
     expect(Validator::isValidUuid($uuid))->toBeTrue();
 })->with([
-    '01966b97-8a07-70b2-aeb6-5bf8e46d307d', // With dashes
-    '01966b978a0770b2aeb65bf8e46d307d', // Without dashes
-    '00000000-0000-0000-0000-000000000000', // Zero UUID
-    'f47ac10b-58cc-4372-a567-0e02b2c3d479', // UUIDv4
+    '01966b97-8a07-70b2-aeb6-5bf8e46d307d',
+    '01966b978a0770b2aeb65bf8e46d307d',
+    '00000000-0000-0000-0000-000000000000',
+    'f47ac10b-58cc-4372-a567-0e02b2c3d479',
 ]);
 
 test('Validator isValidUuid with invalid UUIDs', function (string $uuid): void {
@@ -353,22 +339,19 @@ test('Validator isValidUuid with invalid UUIDs', function (string $uuid): void {
 })->with([
     '',
     'not-a-uuid',
-    '01966b97-8a07-70b2-aeb6-5bf8e46d307', // Too short
-    '01966b97-8a07-70b2-aeb6-5bf8e46d307d0', // Too long
-    '01966b97-8a07-70b2-aebz-5bf8e46d307d', // Invalid char
-    '01966b97-8a0770b2-aeb6-5bf8e46d307d', // Partially dashed
-    '01966b978a07-70b2aeb6-5bf8e46d307d', // Inconsistently dashed
-    "01966b97-8a07-70b2-aeb6-5bf8e46d307d\n", // Trailing newline
+    '01966b97-8a07-70b2-aeb6-5bf8e46d307',
+    '01966b97-8a07-70b2-aeb6-5bf8e46d307d0',
+    '01966b97-8a07-70b2-aebz-5bf8e46d307d',
+    '01966b97-8a0770b2-aeb6-5bf8e46d307d',
+    '01966b978a07-70b2aeb6-5bf8e46d307d',
+    "01966b97-8a07-70b2-aeb6-5bf8e46d307d\n",
 ]);
-
-// ===== Edge Cases and Robustness Tests =====
 
 test('TypeID roundtrip with various prefixes and UUIDs', function (string $prefix, string $uuid): void {
     $typeId = TypeID::fromUuid($uuid, $prefix);
     expect($typeId->prefix)->toBe($prefix);
     expect($typeId->toUuid())->toBe($uuid);
 
-    // Roundtrip through string
     $typeIdString = $typeId->toString();
     $parsedTypeId = TypeID::fromString($typeIdString);
     expect($parsedTypeId->prefix)->toBe($prefix);
@@ -423,8 +406,6 @@ test('encoding TypeID', function (string $typeId, string $uuid, ?string $prefix 
     ['01jsnsr3fbe54rkjzfkta25nct', '01966b9c-0deb-7149-89cb-ef9e9422d59a'],
 ]);
 
-// ===== New Coverage Tests =====
-
 test('fromUuid with uppercase UUID normalizes correctly', function (): void {
     $upper = '01966B97-8A07-70B2-AEB6-5BF8E46D307D';
     $lower = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
@@ -446,9 +427,9 @@ test('TypeID hasPrefix returns false when checking empty string on prefixed Type
 test('Validator isValidSuffix with boundary suffix values', function (string $suffix, bool $expected): void {
     expect(Validator::isValidSuffix($suffix))->toBe($expected);
 })->with([
-    ['7zzzzzzzzzzzzzzzzzzzzzzzzz', true],   // max valid
-    ['7zzzzzzzzzzzzzzzzzzzzzzzzy', true],   // just below max
-    ['8zzzzzzzzzzzzzzzzzzzzzzzzz', false],  // overflow
+    'max valid' => ['7zzzzzzzzzzzzzzzzzzzzzzzzz', true],
+    'just below max' => ['7zzzzzzzzzzzzzzzzzzzzzzzzy', true],
+    'overflow' => ['8zzzzzzzzzzzzzzzzzzzzzzzzz', false],
 ]);
 
 test('fromString roundtrip with max-length prefix', function (): void {

@@ -8,22 +8,15 @@ use TypeID\Exception\ValidationException;
 
 /**
  * Stateless validation helpers for TypeID components.
- * All methods are static — this class is not meant to be instantiated.
  *
  * @internal Use TypeID for the stable public API.
  */
 final class Validator
 {
-    /**
-     * Prefix rules: lowercase a-z only; may contain underscores but not at
-     * the start or end; max 63 chars. Empty string is valid (no prefix).
-     */
     private const string PREFIX_PATTERN = '/\A(?:[a-z](?:[a-z_]{0,61}[a-z])?)?\z/';
 
-    /** Exactly 128 bits encoded with the strict TypeID base32 alphabet. */
     private const string SUFFIX_PATTERN = '/\A[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}\z/';
 
-    /** Canonical UUID format, or the same 32 hexadecimal digits without dashes. */
     private const string UUID_PATTERN = '/\A(?:[0-9a-f]{32}|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\z/i';
 
     private function __construct() {}
@@ -33,11 +26,6 @@ final class Validator
         return preg_match(self::PREFIX_PATTERN, $prefix) === 1;
     }
 
-    /**
-     * A valid suffix is exactly 26 Crockford chars whose value fits in 128 bits.
-     * 26 × 5 = 130 bits, but the max encodable value is '7zzz…' (first char ≤ '7'),
-     * capping the range to exactly 2^128 - 1.
-     */
     public static function isValidSuffix(string $suffix): bool
     {
         return preg_match(self::SUFFIX_PATTERN, $suffix) === 1;
@@ -73,7 +61,6 @@ final class Validator
         ];
     }
 
-    /** Accepts UUID with or without dashes, case-insensitive. */
     public static function isValidUuid(string $uuid): bool
     {
         return preg_match(self::UUID_PATTERN, $uuid) === 1;

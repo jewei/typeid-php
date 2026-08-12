@@ -30,8 +30,8 @@ final class TypeID implements JsonSerializable, Stringable
 
     /** @throws ValidationException If prefix or suffix fails TypeID spec validation. */
     public function __construct(
-        public readonly string $prefix, // Entity-type label (e.g. 'user', 'order'). Empty string means no prefix.
-        public readonly string $suffix, // Crockford base32 UUID payload — always exactly 26 lowercase characters.
+        public readonly string $prefix,
+        public readonly string $suffix,
     ) {
         if (! Validator::isValidPrefix($this->prefix)) {
             throw new ValidationException(
