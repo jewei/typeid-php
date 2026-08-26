@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use TypeID\Base32;
+use TypeID\Exception\GenerationException;
 use TypeID\Exception\TypeIDException;
 use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
@@ -179,16 +180,6 @@ test('TypeID equals with different suffixes', function (): void {
     expect($typeId1->equals($typeId2))->toBeFalse();
 });
 
-test('TypeID hasPrefix returns true for matching prefix', function (): void {
-    $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
-    expect($typeId->hasPrefix('user'))->toBeTrue();
-});
-
-test('TypeID hasPrefix returns false for non-matching prefix', function (): void {
-    $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
-    expect($typeId->hasPrefix('post'))->toBeFalse();
-});
-
 test('Base32 encode and decode roundtrip', function (): void {
     $uuid = '01966b97-8a07-70b2-aeb6-5bf8e46d307d';
     $encoded = Base32::encode($uuid);
@@ -347,6 +338,34 @@ test('Validator isValidUuid with invalid UUIDs', function (string $uuid): void {
     "01966b97-8a07-70b2-aeb6-5bf8e46d307d\n",
 ]);
 
+test('Validator assert guards reject with the documented messages', function (): void {
+    expect(fn () => Validator::assertValidPrefix('INVALID'))
+        ->toThrow(ValidationException::class, 'Invalid prefix: INVALID');
+    expect(fn () => Validator::assertValidSuffix('tooshort'))
+        ->toThrow(ValidationException::class, 'Invalid suffix: tooshort');
+    expect(fn () => Validator::assertValidBase32('tooshort'))
+        ->toThrow(ValidationException::class, 'Invalid TypeID base32 string: tooshort');
+    expect(fn () => Validator::assertValidUuid('not-a-uuid'))
+        ->toThrow(ValidationException::class, 'Invalid UUID string: not-a-uuid');
+});
+
+test('Validator assert guards accept valid input', function (): void {
+    Validator::assertValidPrefix('user');
+    Validator::assertValidSuffix('01jsnsf2g7e2saxdjvz3j6tc3x');
+    Validator::assertValidBase32('01jsnsf2g7e2saxdjvz3j6tc3x');
+    Validator::assertValidUuid('01966b97-8a07-70b2-aeb6-5bf8e46d307d');
+
+    expect(true)->toBeTrue();
+});
+
+test('GenerationException separates operational failure from caller error', function (): void {
+    $exception = new GenerationException('generation failed');
+
+    expect($exception)->toBeInstanceOf(TypeIDException::class)
+        ->and($exception)->toBeInstanceOf(\RuntimeException::class)
+        ->and($exception)->not->toBeInstanceOf(\InvalidArgumentException::class);
+});
+
 test('TypeID roundtrip with various prefixes and UUIDs', function (string $prefix, string $uuid): void {
     $typeId = TypeID::fromUuid($uuid, $prefix);
     expect($typeId->prefix)->toBe($prefix);
@@ -417,11 +436,6 @@ test('TypeID equals returns false comparing zero to non-zero with same prefix', 
     $zero = TypeID::zero('user');
     $nonZero = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
     expect($zero->equals($nonZero))->toBeFalse();
-});
-
-test('TypeID hasPrefix returns false when checking empty string on prefixed TypeID', function (): void {
-    $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
-    expect($typeId->hasPrefix(''))->toBeFalse();
 });
 
 test('Validator isValidSuffix with boundary suffix values', function (string $suffix, bool $expected): void {

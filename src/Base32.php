@@ -23,6 +23,11 @@ use TypeID\Exception\ValidationException;
  *   c[ 9] = b[5]&0x1F                       bits  84- 80
  *   … chars 2-25 repeat an 8-char / 5-byte pattern three times.
  *
+ * That repeat could fold into a 5-byte loop. It stays unrolled on purpose:
+ * encode/decode sit on the hot path of every TypeID created or parsed, and a
+ * straight-line expression avoids 26 iterations of loop and index arithmetic.
+ * Change it only with a benchmark that shows the loop is no slower.
+ *
  * @internal Use TypeID for the stable public API.
  */
 final class Base32
@@ -48,11 +53,7 @@ final class Base32
      */
     public static function encode(string $uuid): string
     {
-        if (! Validator::isValidUuid($uuid)) {
-            throw new ValidationException(
-                'Invalid UUID string: '.Validator::formatForMessage($uuid)
-            );
-        }
+        Validator::assertValidUuid($uuid);
 
         return self::encodeBytes(hex2bin(str_replace('-', '', strtolower($uuid))));
     }
@@ -76,37 +77,37 @@ final class Base32
             throw new ValidationException('Failed to unpack UUID bytes');
         }
 
-        $b = array_values($unpacked);
+        $octets = array_values($unpacked);
 
-        $a = self::ALPHABET;
+        $alphabet = self::ALPHABET;
 
         return
-            $a[$b[0] >> 5].
-            $a[$b[0] & 0x1F].
-            $a[$b[1] >> 3].
-            $a[($b[1] & 0x07) << 2 | $b[2] >> 6].
-            $a[($b[2] >> 1) & 0x1F].
-            $a[($b[2] & 0x01) << 4 | $b[3] >> 4].
-            $a[($b[3] & 0x0F) << 1 | $b[4] >> 7].
-            $a[($b[4] >> 2) & 0x1F].
-            $a[($b[4] & 0x03) << 3 | $b[5] >> 5].
-            $a[$b[5] & 0x1F].
-            $a[$b[6] >> 3].
-            $a[($b[6] & 0x07) << 2 | $b[7] >> 6].
-            $a[($b[7] >> 1) & 0x1F].
-            $a[($b[7] & 0x01) << 4 | $b[8] >> 4].
-            $a[($b[8] & 0x0F) << 1 | $b[9] >> 7].
-            $a[($b[9] >> 2) & 0x1F].
-            $a[($b[9] & 0x03) << 3 | $b[10] >> 5].
-            $a[$b[10] & 0x1F].
-            $a[$b[11] >> 3].
-            $a[($b[11] & 0x07) << 2 | $b[12] >> 6].
-            $a[($b[12] >> 1) & 0x1F].
-            $a[($b[12] & 0x01) << 4 | $b[13] >> 4].
-            $a[($b[13] & 0x0F) << 1 | $b[14] >> 7].
-            $a[($b[14] >> 2) & 0x1F].
-            $a[($b[14] & 0x03) << 3 | $b[15] >> 5].
-            $a[$b[15] & 0x1F];
+            $alphabet[$octets[0] >> 5].
+            $alphabet[$octets[0] & 0x1F].
+            $alphabet[$octets[1] >> 3].
+            $alphabet[($octets[1] & 0x07) << 2 | $octets[2] >> 6].
+            $alphabet[($octets[2] >> 1) & 0x1F].
+            $alphabet[($octets[2] & 0x01) << 4 | $octets[3] >> 4].
+            $alphabet[($octets[3] & 0x0F) << 1 | $octets[4] >> 7].
+            $alphabet[($octets[4] >> 2) & 0x1F].
+            $alphabet[($octets[4] & 0x03) << 3 | $octets[5] >> 5].
+            $alphabet[$octets[5] & 0x1F].
+            $alphabet[$octets[6] >> 3].
+            $alphabet[($octets[6] & 0x07) << 2 | $octets[7] >> 6].
+            $alphabet[($octets[7] >> 1) & 0x1F].
+            $alphabet[($octets[7] & 0x01) << 4 | $octets[8] >> 4].
+            $alphabet[($octets[8] & 0x0F) << 1 | $octets[9] >> 7].
+            $alphabet[($octets[9] >> 2) & 0x1F].
+            $alphabet[($octets[9] & 0x03) << 3 | $octets[10] >> 5].
+            $alphabet[$octets[10] & 0x1F].
+            $alphabet[$octets[11] >> 3].
+            $alphabet[($octets[11] & 0x07) << 2 | $octets[12] >> 6].
+            $alphabet[($octets[12] >> 1) & 0x1F].
+            $alphabet[($octets[12] & 0x01) << 4 | $octets[13] >> 4].
+            $alphabet[($octets[13] & 0x0F) << 1 | $octets[14] >> 7].
+            $alphabet[($octets[14] >> 2) & 0x1F].
+            $alphabet[($octets[14] & 0x03) << 3 | $octets[15] >> 5].
+            $alphabet[$octets[15] & 0x1F];
     }
 
     /**
@@ -135,32 +136,28 @@ final class Base32
      */
     public static function decodeBytes(string $base32): string
     {
-        if (! Validator::isValidSuffix($base32)) {
-            throw new ValidationException(
-                'Invalid TypeID base32 string: '.Validator::formatForMessage($base32)
-            );
-        }
+        Validator::assertValidBase32($base32);
 
-        $m = self::DECODE_MAP;
-        $v = array_map(fn (string $ch): int => $m[$ch], str_split($base32));
+        $map = self::DECODE_MAP;
+        $values = array_map(fn (string $ch): int => $map[$ch], str_split($base32));
 
         return pack('C*',
-            $v[0] << 5 | $v[1],
-            $v[2] << 3 | $v[3] >> 2,
-            ($v[3] & 0x03) << 6 | $v[4] << 1 | $v[5] >> 4,
-            ($v[5] & 0x0F) << 4 | $v[6] >> 1,
-            ($v[6] & 0x01) << 7 | $v[7] << 2 | $v[8] >> 3,
-            ($v[8] & 0x07) << 5 | $v[9],
-            $v[10] << 3 | $v[11] >> 2,
-            ($v[11] & 0x03) << 6 | $v[12] << 1 | $v[13] >> 4,
-            ($v[13] & 0x0F) << 4 | $v[14] >> 1,
-            ($v[14] & 0x01) << 7 | $v[15] << 2 | $v[16] >> 3,
-            ($v[16] & 0x07) << 5 | $v[17],
-            $v[18] << 3 | $v[19] >> 2,
-            ($v[19] & 0x03) << 6 | $v[20] << 1 | $v[21] >> 4,
-            ($v[21] & 0x0F) << 4 | $v[22] >> 1,
-            ($v[22] & 0x01) << 7 | $v[23] << 2 | $v[24] >> 3,
-            ($v[24] & 0x07) << 5 | $v[25],
+            $values[0] << 5 | $values[1],
+            $values[2] << 3 | $values[3] >> 2,
+            ($values[3] & 0x03) << 6 | $values[4] << 1 | $values[5] >> 4,
+            ($values[5] & 0x0F) << 4 | $values[6] >> 1,
+            ($values[6] & 0x01) << 7 | $values[7] << 2 | $values[8] >> 3,
+            ($values[8] & 0x07) << 5 | $values[9],
+            $values[10] << 3 | $values[11] >> 2,
+            ($values[11] & 0x03) << 6 | $values[12] << 1 | $values[13] >> 4,
+            ($values[13] & 0x0F) << 4 | $values[14] >> 1,
+            ($values[14] & 0x01) << 7 | $values[15] << 2 | $values[16] >> 3,
+            ($values[16] & 0x07) << 5 | $values[17],
+            $values[18] << 3 | $values[19] >> 2,
+            ($values[19] & 0x03) << 6 | $values[20] << 1 | $values[21] >> 4,
+            ($values[21] & 0x0F) << 4 | $values[22] >> 1,
+            ($values[22] & 0x01) << 7 | $values[23] << 2 | $values[24] >> 3,
+            ($values[24] & 0x07) << 5 | $values[25],
         );
     }
 }

@@ -9,6 +9,9 @@ use TypeID\Exception\ValidationException;
 /**
  * Stateless validation helpers for TypeID components.
  *
+ * Each rule comes in two forms: an isValidX() predicate for callers that want a
+ * boolean, and an assertValidX() guard that throws with a safe, uniform message.
+ *
  * @internal Use TypeID for the stable public API.
  */
 final class Validator
@@ -29,6 +32,43 @@ final class Validator
     public static function isValidSuffix(string $suffix): bool
     {
         return preg_match(self::SUFFIX_PATTERN, $suffix) === 1;
+    }
+
+    public static function isValidUuid(string $uuid): bool
+    {
+        return preg_match(self::UUID_PATTERN, $uuid) === 1;
+    }
+
+    /** @throws ValidationException If $prefix is not a valid TypeID prefix. */
+    public static function assertValidPrefix(string $prefix): void
+    {
+        if (! self::isValidPrefix($prefix)) {
+            throw new ValidationException('Invalid prefix: '.self::formatForMessage($prefix));
+        }
+    }
+
+    /** @throws ValidationException If $suffix is not a valid TypeID suffix. */
+    public static function assertValidSuffix(string $suffix): void
+    {
+        if (! self::isValidSuffix($suffix)) {
+            throw new ValidationException('Invalid suffix: '.self::formatForMessage($suffix));
+        }
+    }
+
+    /** @throws ValidationException If $suffix is not a valid 26-char Crockford base32 string. */
+    public static function assertValidBase32(string $suffix): void
+    {
+        if (! self::isValidSuffix($suffix)) {
+            throw new ValidationException('Invalid TypeID base32 string: '.self::formatForMessage($suffix));
+        }
+    }
+
+    /** @throws ValidationException If $uuid is not a valid UUID string. */
+    public static function assertValidUuid(string $uuid): void
+    {
+        if (! self::isValidUuid($uuid)) {
+            throw new ValidationException('Invalid UUID string: '.self::formatForMessage($uuid));
+        }
     }
 
     /**
@@ -61,12 +101,8 @@ final class Validator
         ];
     }
 
-    public static function isValidUuid(string $uuid): bool
-    {
-        return preg_match(self::UUID_PATTERN, $uuid) === 1;
-    }
-
-    public static function formatForMessage(string $value): string
+    /** Escape control characters and cap length, so rejected input is safe to echo. */
+    private static function formatForMessage(string $value): string
     {
         $escaped = addcslashes($value, "\0..\37");
 

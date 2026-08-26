@@ -9,7 +9,7 @@ use Override;
 use Ramsey\Uuid\Exception\UuidExceptionInterface;
 use Ramsey\Uuid\Uuid;
 use Stringable;
-use TypeID\Exception\ConstructorException;
+use TypeID\Exception\GenerationException;
 use TypeID\Exception\ValidationException;
 
 /**
@@ -33,17 +33,8 @@ final class TypeID implements JsonSerializable, Stringable
         public readonly string $prefix,
         public readonly string $suffix,
     ) {
-        if (! Validator::isValidPrefix($this->prefix)) {
-            throw new ValidationException(
-                'Invalid prefix: '.Validator::formatForMessage($this->prefix)
-            );
-        }
-
-        if (! Validator::isValidSuffix($this->suffix)) {
-            throw new ValidationException(
-                'Invalid suffix: '.Validator::formatForMessage($this->suffix)
-            );
-        }
+        Validator::assertValidPrefix($this->prefix);
+        Validator::assertValidSuffix($this->suffix);
     }
 
     #[Override]
@@ -119,7 +110,7 @@ final class TypeID implements JsonSerializable, Stringable
      * UUIDv7 encodes a millisecond timestamp in the high bits, making
      * generated TypeIDs with the same prefix sortable by creation time.
      *
-     * @throws ConstructorException If UUIDv7 generation fails.
+     * @throws GenerationException If UUIDv7 generation fails.
      * @throws ValidationException If $prefix fails spec validation.
      */
     public static function generate(?string $prefix = null): self
@@ -127,7 +118,7 @@ final class TypeID implements JsonSerializable, Stringable
         try {
             $uuid = Uuid::uuid7()->toString();
         } catch (UuidExceptionInterface $e) {
-            throw new ConstructorException(
+            throw new GenerationException(
                 'Failed to generate TypeID: '.$e->getMessage(),
                 previous: $e,
             );
@@ -139,6 +130,10 @@ final class TypeID implements JsonSerializable, Stringable
     /**
      * Create the nil TypeID (all 128 UUID bits are zero).
      * Useful as a sentinel, placeholder, or default FK value.
+     *
+     * This is not a generator: the nil UUID carries no version or variant bits,
+     * so the result is deliberately not a UUIDv7 and is not K-sortable. The
+     * TypeID spec lists the nil suffix among its valid vectors.
      *
      * @throws ValidationException If $prefix fails spec validation.
      */
@@ -175,12 +170,6 @@ final class TypeID implements JsonSerializable, Stringable
     public function isNonZero(): bool
     {
         return ! $this->isZero();
-    }
-
-    /** True when this TypeID's prefix exactly matches $prefix (case-sensitive). */
-    public function hasPrefix(string $prefix): bool
-    {
-        return $this->prefix === $prefix;
     }
 
     /** Value equality — two TypeIDs are equal only when prefix and suffix both match. */

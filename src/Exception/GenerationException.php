@@ -7,4 +7,4 @@ namespace TypeID\Exception;
 use RuntimeException;
 
 /** Thrown when TypeID generation fails operationally. */
-final class ConstructorException extends RuntimeException implements TypeIDException {}
+final class GenerationException extends RuntimeException implements TypeIDException {}

@@ -63,13 +63,43 @@ echo $a->equals($b); // true
 $uuidBytes = TypeID::generate('user')->bytes();
 $binaryId = TypeID::fromBytes($uuidBytes, 'user');
 $uuidBytes = $binaryId->bytes();
+
+// Encodes as the canonical string in JSON
+echo json_encode(['id' => $id]); // {"id":"invoice_01jsnsf2g7e2saxdjvz3j6tc3x"}
+
+// Survives native serialize()/unserialize(), and revalidates on the way back
+$restored = unserialize(serialize($id));
+
+// The nil suffix constant, if you need to match on it directly
+echo TypeID::ZERO_SUFFIX; // 00000000000000000000000000
 ```
+
+### API
+
+| Member | Returns | Notes |
+| ------ | ------- | ----- |
+| `TypeID::generate(?string $prefix)` | `TypeID` | Fresh UUIDv7. The only K-sortable constructor. |
+| `TypeID::fromString(string $value)` | `TypeID` | Parses `prefix_suffix` or a bare suffix. |
+| `TypeID::fromUuid(string $uuid, ?string $prefix)` | `TypeID` | Any valid UUID, not just v7. |
+| `TypeID::fromBytes(string $bytes, ?string $prefix)` | `TypeID` | Exactly 16 raw bytes. |
+| `TypeID::zero(?string $prefix)` | `TypeID` | Nil UUID sentinel. Not a generator — see below. |
+| `->prefix`, `->suffix` | `string` | Readonly. |
+| `->toString()`, `(string)`, `->jsonSerialize()` | `string` | All give the canonical form. |
+| `->toUuid()` | `string` | Always lowercase and hyphenated. |
+| `->bytes()` | `string` | 16 raw bytes. |
+| `->isZero()`, `->isNonZero()` | `bool` | Nil-suffix checks. |
+| `->equals(TypeID $other)` | `bool` | Prefix and suffix must both match. |
+| `TypeID::ZERO_SUFFIX` | `string` | The 26-char nil suffix. |
+
+To compare prefixes, read the property: `$id->prefix === 'user'`.
 
 The package uses `ramsey/uuid` to generate standards-compliant UUIDv7 values. Encoding and decoding are implemented locally without optional math extensions.
 
-`fromUuid()` also accepts valid non-v7 UUIDs for interoperability. Those imported values—and the nil value returned by `zero()`—do not gain UUIDv7 chronological ordering merely by being encoded as TypeIDs.
+`fromUuid()` also accepts valid non-v7 UUIDs for interoperability, in either the hyphenated or the bare 32-character hex form, in upper or lower case. Input is normalized: `toUuid()` always returns the lowercase hyphenated form, so a bare or uppercase input does not come back byte-identical.
 
-Caller-invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. `TypeID\Exception\ConstructorException` is reserved for UUID generation failures. Both implement `TypeID\Exception\TypeIDException`.
+`zero()` is a sentinel constructor, not a generator. The nil UUID has no version or variant bits, so a zero TypeID is deliberately not a UUIDv7 and is not K-sortable. The TypeID spec lists the nil suffix among its valid vectors. The same applies to non-v7 values passed to `fromUuid()`: they do not gain chronological ordering merely by being encoded as TypeIDs.
+
+Caller-invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. `TypeID\Exception\GenerationException` extends `RuntimeException` and is reserved for UUID generation failures. Both implement `TypeID\Exception\TypeIDException`, so `catch (TypeIDException $e)` catches everything this package throws.
 
 ## Format
 
@@ -80,7 +110,24 @@ user_01jsnsf2g7e2saxdjvz3j6tc3x
 └─ prefix: lowercase entity type label (0–63 chars)
 ```
 
-The prefix is separated from the suffix by `_`. When no prefix is used, the TypeID is just the bare 26-char suffix. Multiple underscores are allowed in the prefix (`post_category_01jsnsf2g7…`); the last underscore is always the delimiter.
+The prefix is separated from the suffix by `_`. When no prefix is used, the TypeID is just the bare 26-char suffix, with no leading separator. The last underscore is always the delimiter.
+
+**Prefix rules** — must match `^([a-z]([a-z_]{0,61}[a-z])?)?$`:
+
+- 0 to 63 characters. The empty prefix is valid.
+- Lowercase ASCII letters `[a-z]` and underscore `_` only. **Digits and uppercase letters are rejected.**
+- Must start and end with a letter. `_user` and `user_` are both invalid.
+- Consecutive underscores are allowed: `my__type` is valid.
+
+**Suffix rules** — must match `^[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}$`:
+
+- Exactly 26 characters, lowercase Crockford base32.
+- The alphabet excludes `i`, `l`, `o`, and `u`. No hyphens, no padding.
+- **The first character must be `7` or less.** 26 base32 characters hold 130 bits, but a UUID is 128, so anything above `7zzzzzzzzzzzzzzzzzzzzzzzzz` would overflow and is rejected.
+
+**Length** — a TypeID is between 26 characters (bare suffix) and 90 characters (63-char prefix + `_` + 26-char suffix).
+
+This implementation is verified against the official conformance vectors in [`spec/valid.json`](spec/valid.json) and [`spec/invalid.json`](spec/invalid.json), which run as part of the test suite.
 
 ## Examples
 
