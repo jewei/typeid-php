@@ -17,8 +17,8 @@
         "ramsey/uuid": "^4.9"
     },
     "require-dev": {
-        "laravel/pint": "^1.29",
-        "pestphp/pest": "^4.4"
+        "laravel/pint": "^1.30",
+        "pestphp/pest": "^5.1"
     },
     "autoload": {
         "psr-4": {
