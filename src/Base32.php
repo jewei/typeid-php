@@ -63,7 +63,8 @@ final class Base32
     /** True when $suffix is a canonical 26-character suffix. */
     public static function isCanonicalSuffix(string $suffix): bool
     {
-        return preg_match(self::CANONICAL_SUFFIX_PATTERN, $suffix) === 1;
+        return strlen($suffix) === 26
+            && preg_match(self::CANONICAL_SUFFIX_PATTERN, $suffix) === 1;
     }
 
     /**
@@ -83,6 +84,8 @@ final class Base32
             throw ValidationException::unreadableBytes();
         }
 
+        // PHPStan cannot infer unpack() values from its dynamic format string.
+        /** @var array<int, int> $unpacked */
         $octets = array_values($unpacked);
 
         $alphabet = self::ALPHABET;
@@ -124,7 +127,7 @@ final class Base32
     public static function decodeBytes(string $base32): string
     {
         if (! self::isCanonicalSuffix($base32)) {
-            throw ValidationException::invalidCodecInput($base32);
+            throw ValidationException::invalidCodecInput(strlen($base32));
         }
 
         $map = self::DECODE_MAP;

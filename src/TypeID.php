@@ -6,15 +6,16 @@ namespace TypeID;
 
 use JsonSerializable;
 use Override;
-use Ramsey\Uuid\Exception\UuidExceptionInterface;
 use Ramsey\Uuid\Uuid;
 use Stringable;
+use Throwable;
 use TypeID\Exception\GenerationException;
 use TypeID\Exception\ValidationException;
 
 /**
- * A TypeID value. Values created by generate() are type-safe, K-sortable,
- * and globally unique.
+ * A TypeID value. Values created by generate() are type-safe and globally
+ * unique. Values with the same type prefix are K-sortable by their UUIDv7
+ * millisecond timestamp.
  *
  * Format: {prefix}_{suffix}  e.g. user_01jsnsf2g7e2saxdjvz3j6tc3x
  *
@@ -93,13 +94,7 @@ final class TypeID implements JsonSerializable, Stringable
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
-        if (preg_match(self::UUID_PATTERN, $uuid) !== 1) {
-            throw ValidationException::invalidUuid($uuid);
-        }
-
-        $hex = str_replace('-', '', strtolower($uuid));
-
-        return new self($prefix ?? '', Base32::encodeBytes((string) hex2bin($hex)));
+        return new self($prefix ?? '', Base32::encodeBytes(self::parseUuidBytes($uuid)));
     }
 
     /**
@@ -122,41 +117,71 @@ final class TypeID implements JsonSerializable, Stringable
      */
     public static function fromString(string $value): self
     {
-        if ($value === '') {
-            throw ValidationException::malformedString('cannot be empty');
+        $length = strlen($value);
+
+        if ($length === 0) {
+            throw ValidationException::emptyString();
         }
 
-        if (str_starts_with($value, '_')) {
-            throw ValidationException::malformedString('cannot start with an underscore');
+        if ($length > 90) {
+            throw ValidationException::invalidStringLength($length);
         }
 
-        $lastUnderscore = strrpos($value, '_');
+        if ($value[0] === '_') {
+            throw ValidationException::leadingSeparator();
+        }
 
-        return $lastUnderscore === false
-            ? new self('', $value)
-            : new self(substr($value, 0, $lastUnderscore), substr($value, $lastUnderscore + 1));
+        if ($length === 26) {
+            return new self('', $value);
+        }
+
+        if ($length < 28) {
+            throw ValidationException::invalidStringLength($length);
+        }
+
+        $separator = $length - 27;
+
+        if ($value[$separator] !== '_') {
+            throw ValidationException::missingSeparator();
+        }
+
+        return new self(substr($value, 0, $separator), substr($value, $separator + 1));
     }
 
     /**
      * Generate a new TypeID backed by a fresh UUIDv7.
-     * UUIDv7 encodes a millisecond timestamp in the high bits, making
-     * generated TypeIDs with the same prefix sortable by creation time.
+     * UUIDv7 encodes a millisecond timestamp in the high bits. Ramsey's
+     * default generator keeps successive values monotonic within one process;
+     * separate processes do not share that monotonic state.
      *
      * @throws GenerationException If UUIDv7 generation fails.
      * @throws ValidationException If $prefix fails spec validation.
      */
     public static function generate(?string $prefix = null): self
     {
+        $prefix ??= '';
+        self::assertValidPrefix($prefix);
+
         try {
             $uuid = Uuid::uuid7()->toString();
-        } catch (UuidExceptionInterface $e) {
+        } catch (Throwable $exception) {
             throw new GenerationException(
-                'Failed to generate TypeID: '.$e->getMessage(),
-                previous: $e,
+                'Failed to generate a UUIDv7 for TypeID',
+                previous: $exception,
             );
         }
 
-        return self::fromUuid($uuid, $prefix);
+        try {
+            $bytes = self::parseUuidBytes($uuid);
+        } catch (ValidationException) {
+            throw new GenerationException('The UUID factory did not return a valid UUIDv7');
+        }
+
+        if ((ord($bytes[6]) & 0xF0) !== 0x70 || (ord($bytes[8]) & 0xC0) !== 0x80) {
+            throw new GenerationException('The UUID factory did not return a valid UUIDv7');
+        }
+
+        return new self($prefix, Base32::encodeBytes($bytes));
     }
 
     /**
@@ -225,11 +250,25 @@ final class TypeID implements JsonSerializable, Stringable
         return $this->toString();
     }
 
+    /** @throws ValidationException If $uuid is not a valid UUID string. */
+    private static function parseUuidBytes(string $uuid): string
+    {
+        $length = strlen($uuid);
+
+        if (($length !== 32 && $length !== 36) || preg_match(self::UUID_PATTERN, $uuid) !== 1) {
+            throw ValidationException::invalidUuid($length);
+        }
+
+        return (string) hex2bin(str_replace('-', '', strtolower($uuid)));
+    }
+
     /** @throws ValidationException If $prefix is not a valid type prefix. */
     private static function assertValidPrefix(string $prefix): void
     {
-        if (preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
-            throw ValidationException::invalidPrefix($prefix);
+        $length = strlen($prefix);
+
+        if ($length > 63 || preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
+            throw ValidationException::invalidPrefix($length);
         }
     }
 
@@ -237,7 +276,7 @@ final class TypeID implements JsonSerializable, Stringable
     private static function assertValidSuffix(string $suffix): void
     {
         if (! Base32::isCanonicalSuffix($suffix)) {
-            throw ValidationException::invalidSuffix($suffix);
+            throw ValidationException::invalidSuffix(strlen($suffix));
         }
     }
 }

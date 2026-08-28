@@ -1,0 +1,69 @@
+name: PHP check
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: PHP version to use
+        required: true
+        type: string
+      dependencies:
+        description: Dependency set to install
+        default: highest
+        type: string
+      coverage:
+        description: Coverage driver to enable
+        default: none
+        type: string
+      check:
+        description: Check to run
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          tools: composer:v2
+          coverage: ${{ inputs.coverage }}
+
+      - name: Install lowest dependencies
+        if: inputs.dependencies == 'lowest'
+        run: composer update --prefer-lowest --prefer-dist --no-interaction
+
+      - name: Install highest dependencies
+        if: inputs.dependencies == 'highest'
+        run: composer update --prefer-dist --no-interaction
+
+      - name: Check architecture
+        if: inputs.check == 'tests'
+        run: composer test:architecture
+
+      - name: Run tests
+        if: inputs.check == 'tests'
+        run: composer test:unit
+
+      - name: Run PHPStan
+        if: inputs.check == 'static-analysis'
+        run: composer test:types
+
+      - name: Enforce coverage
+        if: inputs.check == 'coverage'
+        run: vendor/bin/pest --coverage --min=90
+
+      - name: Check code style
+        if: inputs.check == 'style'
+        run: vendor/bin/pint --test

@@ -59,7 +59,7 @@ _Avoid_: nil TypeID, empty TypeID, null TypeID
 ### Properties and conformance
 
 **K-sortable**:
-The property that TypeIDs sharing a type prefix and backed by UUIDv7 sort lexicographically into creation order, because the UUID's leading bits are a millisecond timestamp. Zero TypeIDs and TypeIDs built from other UUID versions do not have this property.
+The property that TypeIDs sharing a type prefix and backed by UUIDv7 sort lexicographically by their millisecond timestamps. Values generated in the same millisecond by separate processes have no guaranteed creation order. Ramsey's default generator adds monotonic ordering only among successive calls in one process. Zero TypeIDs and TypeIDs built from other UUID versions do not have this property.
 _Avoid_: sortable, time-ordered, monotonic
 
 **Spec vector**:

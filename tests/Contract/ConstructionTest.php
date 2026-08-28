@@ -36,7 +36,7 @@ test('generate without a prefix produces a bare TypeID', function (): void {
         ->and($typeId->toString())->toBe($typeId->suffix);
 });
 
-test('generated TypeIDs sharing a prefix are K-sortable', function (): void {
+test('default Ramsey generation sorts chronologically within one process', function (): void {
     $ids = array_map(fn (): string => TypeID::generate('user')->toString(), range(1, 25));
     $sorted = $ids;
     sort($sorted);

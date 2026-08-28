@@ -15,8 +15,8 @@ valid suffix?" a two-file question.
 
 We are moving each rule to the module that owns the concept, and deleting
 `Validator`. This reverses part of those three commits deliberately; the
-duplication they removed does not return, because message rendering now
-belongs to `ValidationException` (see the named constructors added
+duplication they removed does not return, because bounded diagnostic messages
+now belong to `ValidationException` (see the named constructors added
 alongside this decision).
 
 ## The four decisions
@@ -27,15 +27,16 @@ validation — alphabet, length, and the 128-bit overflow rule — because
 byte-only does not mean validation-free. A decoder that accepts
 `8zzzzzzzzzzzzzzzzzzzzzzzzz` is wrong regardless of who called it.
 
-**B. UUID text belongs to `TypeID`.** Parsing, case normalisation, hyphen
-handling and formatting move to `fromUuid()` and `toUuid()`, which exchange
-raw 16-byte values with the codec. Previously `Base32::encode()` validated
-UUID strings and `Base32::decode()` formatted them, which is three
-UUID-text responsibilities inside something named after a base32 codec.
+**B. UUID text belongs to `TypeID`.** Parsing, case normalisation and hyphen
+handling belong to a private path shared by `fromUuid()` and `generate()`;
+formatting belongs to `toUuid()`. These methods exchange raw 16-byte values
+with the codec. Previously `Base32::encode()` validated UUID strings and
+`Base32::decode()` formatted them, which is three UUID-text responsibilities
+inside something named after a base32 codec.
 
 **C. `Validator` is deleted.** The prefix grammar goes to `TypeID`, suffix
-canonicality to `Base32`, UUID grammar to `TypeID`, and message rendering
-was already on `ValidationException`. Nothing is left.
+canonicality to `Base32`, UUID grammar to `TypeID`, and bounded diagnostic
+construction was already on `ValidationException`. Nothing is left.
 
 **D. `fromString()` owns the whole parse.** Splitting a string and
 validating its parts becomes one private path, rather than

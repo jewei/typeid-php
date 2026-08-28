@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use TypeID\Development\ArchitectureChecker;
+
+require_once __DIR__.'/ArchitectureChecker.php';
+
 /**
  * Architecture check: enforces the supported surface documented in the README.
  *
@@ -46,8 +50,13 @@ $filesIn = static function (string $dir) use ($root): array {
     $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
 
     foreach ($iterator as $file) {
+        if (! $file instanceof \SplFileInfo) {
+            continue;
+        }
+
         if ($file->isFile() && $file->getExtension() === 'php') {
-            $found[] = substr($file->getPathname(), strlen($root) + 1);
+            $relative = substr($file->getPathname(), strlen($root) + 1);
+            $found[] = str_replace('\\', '/', $relative);
         }
     }
 
@@ -64,16 +73,7 @@ $referencesIn = static function (string $relative) use ($root): array {
         return [];
     }
 
-    $found = [];
-
-    foreach (INTERNAL as $module) {
-        // Static call, instantiation, use statement, or fully-qualified mention.
-        if (preg_match('/\b'.$module.'\s*::|use\s+TypeID\\\\'.$module.'\b|new\s+'.$module.'\b/', $source) === 1) {
-            $found[] = $module;
-        }
-    }
-
-    return $found;
+    return ArchitectureChecker::internalReferences($source, INTERNAL);
 };
 
 // ── Production code ────────────────────────────────────────────────────────
@@ -107,21 +107,6 @@ foreach ($filesIn('tests') as $file) {
         }
 
         $violations[] = "{$file} references internal module {$module} (tests must use the TypeID seam; only tests/Codec/ may reach Base32)";
-    }
-}
-
-// ── Exception construction ─────────────────────────────────────────────────
-// ValidationException owns message rendering, so every raise must go through a
-// named constructor. Free-form construction risks echoing input unescaped.
-foreach ($filesIn('src') as $file) {
-    if ($file === 'src/Exception/ValidationException.php') {
-        continue;
-    }
-
-    $source = file_get_contents($root.'/'.$file);
-
-    if ($source !== false && preg_match('/new\s+ValidationException\s*\(/', $source) === 1) {
-        $violations[] = "{$file} constructs ValidationException directly (use a named constructor so the value is escaped)";
     }
 }
 

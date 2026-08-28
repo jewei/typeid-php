@@ -53,30 +53,42 @@ test('caller-invalid input is catchable as InvalidArgumentException', function (
 });
 
 test('ValidationException separates caller error from operational failure', function (): void {
-    $validation = new ValidationException('invalid');
-    $generation = new GenerationException('generation failed');
+    try {
+        TypeID::fromString('invalid');
+    } catch (ValidationException $validation) {
+        $generation = new GenerationException('generation failed');
 
-    expect($validation)->toBeInstanceOf(TypeIDException::class)
-        ->and($validation)->toBeInstanceOf(\InvalidArgumentException::class)
-        ->and($generation)->toBeInstanceOf(TypeIDException::class)
-        ->and($generation)->toBeInstanceOf(\RuntimeException::class)
-        ->and($generation)->not->toBeInstanceOf(\InvalidArgumentException::class);
+        expect($validation)->toBeInstanceOf(TypeIDException::class)
+            ->and($validation)->toBeInstanceOf(\InvalidArgumentException::class)
+            ->and($generation)->toBeInstanceOf(TypeIDException::class)
+            ->and($generation)->toBeInstanceOf(\RuntimeException::class)
+            ->and($generation)->not->toBeInstanceOf(\InvalidArgumentException::class);
+
+        return;
+    }
+
+    throw new \RuntimeException('Expected a ValidationException');
+});
+
+test('ValidationException can only be created through a named constructor', function (): void {
+    $constructor = (new \ReflectionClass(ValidationException::class))->getConstructor();
+
+    expect($constructor)->not->toBeNull()
+        ->and($constructor->isPrivate())->toBeTrue();
 });
 
 /**
- * Rejected input is echoed back in the message, so it must be escaped and
- * capped. Exact wording is deliberately not asserted: it is not contractual.
+ * Rejected values may be large, sensitive, or unsafe for logs. Messages expose
+ * only bounded ASCII metadata and never include the value itself.
  */
-test('rejected input is escaped and truncated in every message', function (): void {
+test('validation messages are bounded printable ASCII', function (): void {
     foreach (rejectingOperations() as $name => $operation) {
         try {
             $operation();
         } catch (ValidationException $exception) {
-            $message = $exception->getMessage();
-
-            expect($message)->not->toContain("\n", "newline leaked via: {$name}")
-                ->and($message)->not->toContain("\0")
-                ->and(strlen($message))->toBeLessThan(120);
+            expect($exception->getMessage())
+                ->toMatch('/\A[\x20-\x7e]+\z/D', "unsafe message via: {$name}")
+                ->and(strlen($exception->getMessage()))->toBeLessThan(120);
 
             continue;
         }
@@ -85,12 +97,31 @@ test('rejected input is escaped and truncated in every message', function (): vo
     }
 });
 
-test('control characters never reach the message unescaped', function (): void {
+test('rejected byte sequences are not copied into validation messages', function (): void {
+    foreach (range(0, 255) as $byte) {
+        $value = 'INVALID'.chr($byte);
+
+        try {
+            new TypeID($value, TypeID::ZERO_SUFFIX);
+        } catch (ValidationException $exception) {
+            expect($exception->getMessage())->toMatch('/\A[\x20-\x7e]+\z/D')
+                ->and($exception->getMessage())->not->toContain($value);
+
+            continue;
+        }
+
+        throw new \RuntimeException("Expected byte {$byte} to make the prefix invalid");
+    }
+});
+
+test('a large invalid string is rejected without copying it into the message', function (): void {
+    $value = str_repeat("\0", 1024 * 1024);
+
     try {
-        new TypeID("user\0\x1b[31m", TypeID::ZERO_SUFFIX);
+        TypeID::fromString($value);
     } catch (ValidationException $exception) {
-        expect($exception->getMessage())->not->toContain("\0")
-            ->and($exception->getMessage())->not->toContain("\x1b");
+        expect(strlen($exception->getMessage()))->toBeLessThan(120)
+            ->and($exception->getMessage())->not->toContain($value);
 
         return;
     }

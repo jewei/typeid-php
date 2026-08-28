@@ -13,12 +13,13 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.4.0",
+        "php": "^8.3.0",
         "ramsey/uuid": "^4.9"
     },
     "require-dev": {
         "laravel/pint": "^1.30",
-        "pestphp/pest": "^5.1"
+        "pestphp/pest": "^4.0 || ^5.1",
+        "phpstan/phpstan": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -28,15 +29,18 @@
     "scripts": {
         "test": [
             "@test:architecture",
+            "@test:types",
             "@test:unit"
         ],
-        "test:unit": "vendor/bin/pest",
-        "test:architecture": "php bin/check-architecture.php"
+        "test:unit": "@php vendor/bin/pest",
+        "test:architecture": "@php bin/check-architecture.php",
+        "test:types": "@php vendor/bin/phpstan analyse --no-progress"
     },
     "scripts-descriptions": {
         "test": "Run the architecture check and the full test suite",
         "test:unit": "Run the test suite",
-        "test:architecture": "Enforce the supported-surface dependency allow-list"
+        "test:architecture": "Enforce the supported-surface dependency allow-list",
+        "test:types": "Run PHPStan at maximum strictness against PHP 8.3"
     },
     "authors": [
         {

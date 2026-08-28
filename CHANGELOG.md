@@ -18,16 +18,30 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **BREAKING** — `Base32::encode()` and `Base32::decode()`, which took and
   returned UUID *strings*. The codec is now byte-only. `Base32` was already
   `@internal`; use `TypeID::fromUuid()` and `TypeID::toUuid()`.
+- **BREAKING** — direct construction of `ValidationException` is disabled. Its
+  constructor is private so production code must use the exception's internal
+  named constructors and consumers treat it as a catch contract.
 
 ### Changed
 
+- The minimum supported PHP version is lowered from 8.4 to 8.3. CI tests PHP
+  8.3 with both lowest and highest dependencies, plus PHP 8.4 and 8.5.
 - Each validation rule now lives with the concept it defines: the prefix grammar
-  and UUID text handling on `TypeID`, suffix canonicality on `Base32`, message
-  rendering on `ValidationException`. `Validator` had eight public methods over
-  three regexes, expressed one suffix rule under three names, and had exactly
-  one production caller per rule — so it concentrated nothing.
-- `TypeID::fromString()` owns the whole parse rather than splitting the string
-  in one module and validating the parts in another.
+  and UUID text handling on `TypeID`, suffix canonicality on `Base32`, and
+  diagnostic construction on `ValidationException`. `Validator` had eight
+  public methods over three regexes, expressed one suffix rule under three
+  names, and had exactly one production caller per rule, so it concentrated
+  nothing.
+- `TypeID::fromString()` owns the whole parse, rejects input over 90 bytes
+  before scanning or copying it, and locates the separator from the fixed
+  26-byte suffix length.
+- Validation exceptions report bounded length metadata instead of copying
+  rejected values into messages. Prefix, suffix, and UUID checks now reject
+  impossible lengths before running their regular expressions.
+- `TypeID::generate()` validates its prefix before calling Ramsey, normalizes
+  UUID and GUID codecs to RFC byte order, verifies UUIDv7 version and variant
+  bits, wraps factory throwables with a fixed message, and rejects invalid
+  custom-factory output as a generation failure.
 - `TypeID::__unserialize()` calls the validation guards directly instead of
   constructing and discarding a throwaway instance. Validate-before-assign is
   preserved.
@@ -45,12 +59,11 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   allow-list in CI. PHP has no package-private visibility for top-level
   classes, so the boundary is policy plus a check rather than a language
   guarantee.
-- Named constructors on `ValidationException` (`invalidPrefix()`,
-  `invalidSuffix()`, `invalidUuid()`, `invalidCodecInput()`,
-  `invalidByteCount()`, `malformedString()`, `malformedPayload()`,
-  `unreadableBytes()`). They are `@internal`; the exception class stays
-  supported. Escaping of rejected input is now private to the exception and
-  cannot be skipped at a call site.
+- `composer test:types` — runs PHPStan at maximum strictness against the PHP
+  8.3 compatibility target. CI runs it on PHP 8.3.
+- Named constructors on `ValidationException` for each validation failure.
+  They are `@internal`; the exception class stays supported. Messages contain
+  bounded metadata and never include rejected values.
 
 ### Documentation
 
@@ -60,6 +73,9 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   form is not a durable cross-version storage format. Persist
   `(string) $typeId` instead.
 - Exception *message wording* is explicitly outside the compatibility contract.
+- UUIDv7 ordering is documented as millisecond-level chronological locality,
+  with strict monotonic behavior limited to Ramsey's default generator within
+  one PHP process. UUIDv7-based TypeIDs also disclose their timestamps.
 
 ### Internal
 
@@ -70,11 +86,16 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   maximum suffix mapping to the maximum 128-bit UUID, and the base32 alphabet
   derived through the public seam. Previously the only randomised test asserted
   K-sortability, not the round-trip property.
-- Tests are reorganised into three layers: `tests/Contract/` (through `TypeID`
-  only), `tests/Spec/` (vendored conformance vectors), and `tests/Codec/` (the
-  single deliberate exception, for bit-boundary diagnostics). 34 test call
-  sites previously reached past the seam into `Base32` and `Validator`, which
-  made the effective test surface the implementation layout.
+- Tests are reorganised into four layers: `tests/Contract/` (through `TypeID`
+  only), `tests/Spec/` (vendored conformance vectors), `tests/Codec/` (the
+  single deliberate exception, for bit-boundary diagnostics), and
+  `tests/Tooling/` (architecture-checker fixtures). 34 test call sites
+  previously reached past the seam into `Base32` and `Validator`, which made
+  the effective test surface the implementation layout.
+- The architecture check now inspects PHP name tokens instead of raw text. It
+  catches ordinary, by-reference, variadic, union, and intersection type
+  declarations, plus qualified names, aliases, group imports, attributes, and
+  class constants, while ignoring comments and strings.
 
 ## [3.0.0]
 

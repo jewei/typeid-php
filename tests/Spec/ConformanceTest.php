@@ -102,7 +102,7 @@ test('the maximum suffix is the maximum 128-bit UUID', function (): void {
 test('the leading character never exceeds 7 for any 128-bit value', function (string $fill): void {
     $suffix = TypeID::fromBytes(hex2bin(str_repeat($fill, 16)))->suffix;
 
-    expect((int) $suffix[0])->toBeLessThanOrEqual(7);
+    expect($suffix[0])->toMatch('/\A[0-7]\z/');
 })->with(['00', 'ff', '80', '7f', 'aa', '55', '0f', 'f0']);
 
 /**
@@ -136,17 +136,18 @@ test('canonical strings observe the specified length bounds', function (): void 
 });
 
 /**
- * K-sortability is the reason the spec mandates UUIDv7 for generated ids.
+ * Ramsey's default UUIDv7 generator maintains monotonic state within one PHP
+ * process. TypeID does not promise this ordering across processes or hosts.
  */
-test('generated ids sharing a prefix sort into creation order', function (): void {
+test('default Ramsey generation is strictly increasing within one process', function (): void {
     $previous = '';
     $failure = null;
 
     foreach (range(1, 5000) as $ignored) {
         $current = TypeID::generate('event')->toString();
 
-        if (strcmp($current, $previous) < 0) {
-            $failure = "{$current} sorts before its predecessor {$previous}";
+        if (strcmp($current, $previous) <= 0) {
+            $failure = "{$current} does not sort after its predecessor {$previous}";
 
             break;
         }

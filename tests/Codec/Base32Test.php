@@ -74,7 +74,7 @@ test('the leading character never exceeds 7 for any input', function (): void {
     foreach (['00', 'ff', '80', '7f', 'aa', '55'] as $fill) {
         $encoded = Base32::encodeBytes(hex2bin(str_repeat($fill, 16)));
 
-        expect((int) $encoded[0])->toBeLessThanOrEqual(7);
+        expect($encoded[0])->toMatch('/\A[0-7]\z/');
     }
 });
 
