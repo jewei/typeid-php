@@ -4,4 +4,6 @@ parameters:
     paths:
         - src
         - tests/Tooling/ArchitectureChecker.php
+        - tests/Tooling/ConformanceResultChecker.php
         - tests/Tooling/check-architecture.php
+        - tests/Tooling/check-conformance-results.php

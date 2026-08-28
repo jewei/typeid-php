@@ -214,7 +214,7 @@ PHP cannot hide a top-level class from Composer's autoloader. Composer can there
 
 ## Specification conformance
 
-The repository vendors specification 0.3.0 and its conformance vectors in [`spec/`](spec/). The files come from [`jetify-com/typeid`](https://github.com/jetify-com/typeid/tree/main/spec).
+The repository vendors specification 0.3.0 and its conformance vectors in [`spec/`](spec/). The files are pinned to [`jetify-com/typeid` commit `cb20c6e`](https://github.com/jetify-com/typeid/commit/cb20c6eeb4bc6e5a115fceffcbb22f331d4033f8). [`spec/provenance.json`](spec/provenance.json) records their SHA-256 hashes.
 
 The test suite also checks requirements outside the supplied vectors:
 

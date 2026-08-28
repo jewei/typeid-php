@@ -1,0 +1,11 @@
+{
+    "repository": "https://github.com/jetify-com/typeid",
+    "commit": "cb20c6eeb4bc6e5a115fceffcbb22f331d4033f8",
+    "sha256": {
+        "spec/README.md": "c48f563a66b0e176874d1a6195032a4801ba72e572b90bcfefae08ce894081a8",
+        "spec/valid.yml": "2b712a1323875eceb00a4cfd574d865e95d6aa17070e40f5a7ec783aaa9fd4df",
+        "spec/invalid.yml": "ab01bad4be62eda6783805cfcf9644acdfab02ce57a3b061d54653361dde0759",
+        "spec/valid.json": "af5a9cf2447d757b9354f33861d5d83f4e3244487eac191e37021013ce0c17e3",
+        "spec/invalid.json": "b1bf19bd2c922970bbe0381499807d3a0da652abb3da813b9ab75bac7c25217c"
+    }
+}

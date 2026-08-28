@@ -57,6 +57,9 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   guarantee.
 - `composer test:types` — runs PHPStan at maximum strictness against the PHP
   8.3 compatibility target. CI runs it on PHP 8.3.
+- Conformance checks pin the 9 valid and 21 invalid vectors to a recorded
+  upstream commit and SHA-256 hashes, reject malformed or duplicate vectors,
+  and parse CI's JUnit report to prove all 30 vector tests executed.
 - Named constructors on `ValidationException` for each validation failure.
   They are `@internal`; the exception class stays supported. Messages contain
   bounded metadata and never include rejected values.

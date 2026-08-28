@@ -14,4 +14,8 @@ test('validate valid typeids', function (string $typeid, string $prefix, string 
     expect((string) $tidFromUuid)->toBe($typeid);
 
     expect($tid->toUuid())->toBe($uuid);
+
+    $bytes = hex2bin(str_replace('-', '', $uuid));
+    expect($bytes)->not->toBeFalse();
+    expect((string) TypeID::fromBytes($bytes, $prefix))->toBe($typeid);
 })->with('valid typeids');

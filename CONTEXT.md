@@ -2,7 +2,7 @@
 
 This glossary defines the terms used in the source, tests, and README. The definitions follow [TypeID specification 0.3.0](spec/README.md).
 
-The repository vendors the specification and its conformance vectors in [`spec/`](spec/). The YAML files come from [`jetify-com/typeid`](https://github.com/jetify-com/typeid/tree/main/spec). The JSON files contain the same vectors in the format used by the test suite. This package implements the specification without deviations.
+The repository vendors the specification and its conformance vectors in [`spec/`](spec/). The YAML and JSON files match [`jetify-com/typeid` commit `cb20c6e`](https://github.com/jetify-com/typeid/commit/cb20c6eeb4bc6e5a115fceffcbb22f331d4033f8). [`spec/provenance.json`](spec/provenance.json) records their SHA-256 hashes. This package implements the specification without deviations.
 
 ## Value and parts
 

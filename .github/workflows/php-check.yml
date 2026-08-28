@@ -54,7 +54,11 @@ jobs:
 
       - name: Run tests
         if: inputs.check == 'tests'
-        run: composer test:unit
+        run: composer test:unit -- --log-junit=/tmp/typeid-test-results.xml
+
+      - name: Verify conformance tests executed
+        if: inputs.check == 'tests'
+        run: php tests/Tooling/check-conformance-results.php /tmp/typeid-test-results.xml
 
       - name: Run PHPStan
         if: inputs.check == 'static-analysis'
