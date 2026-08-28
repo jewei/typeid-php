@@ -2,11 +2,15 @@ name: tests
 
 on:
   push:
+    # README.md and CONTEXT.md are read by the architecture check, so they are
+    # deliberately not ignored here.
     paths-ignore:
-      - '*.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
   pull_request:
     paths-ignore:
-      - '*.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
 
 jobs:
   tests:
@@ -41,8 +45,11 @@ jobs:
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction ${{ matrix.composer-args }}
 
+      - name: Check architecture
+        run: composer test:architecture
+
       - name: Run tests
-        run: vendor/bin/pest
+        run: composer test:unit
 
   coverage:
     runs-on: ubuntu-latest

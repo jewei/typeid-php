@@ -26,7 +26,17 @@
         }
     },
     "scripts": {
-        "test": "vendor/bin/pest"
+        "test": [
+            "@test:architecture",
+            "@test:unit"
+        ],
+        "test:unit": "vendor/bin/pest",
+        "test:architecture": "php bin/check-architecture.php"
+    },
+    "scripts-descriptions": {
+        "test": "Run the architecture check and the full test suite",
+        "test:unit": "Run the test suite",
+        "test:architecture": "Enforce the supported-surface dependency allow-list"
     },
     "authors": [
         {

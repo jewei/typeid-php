@@ -101,6 +101,29 @@ The package uses `ramsey/uuid` to generate standards-compliant UUIDv7 values. En
 
 Caller-invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. `TypeID\Exception\GenerationException` extends `RuntimeException` and is reserved for UUID generation failures. Both implement `TypeID\Exception\TypeIDException`, so `catch (TypeIDException $e)` catches everything this package throws.
 
+## Supported surface
+
+`TypeID` is the only supported entry point. Everything below carries a compatibility promise within a major version; anything not listed does not.
+
+| Element | Status |
+| --- | --- |
+| `TypeID` factories and instance methods | Supported |
+| `TypeID::$prefix`, `TypeID::$suffix`, `TypeID::ZERO_SUFFIX` | Supported |
+| `new TypeID($prefix, $suffix)` | Supported — validates both arguments |
+| `Stringable`, `JsonSerializable` behaviour | Supported |
+| `TypeIDException`, `ValidationException`, `GenerationException` | Supported as a catch contract |
+| Exception *message wording* | **Not** supported — may change at any time |
+| Native `serialize()` / `unserialize()` | Supported for runtime round-tripping only |
+| `TypeID\Base32`, `TypeID\Validator` | **Internal.** No promise; may change or disappear |
+
+Two notes on the edges of that table:
+
+**Serialization is not a storage format.** `serialize()` round-trips correctly within a process and within a major version, but the serialized representation is not guaranteed stable across versions. Persist `(string) $typeId` and rehydrate with `TypeID::fromString()` instead.
+
+**Internal classes are internal by policy, not by language.** PHP has no package-private visibility for top-level classes, so `Base32` and `Validator` remain autoloadable. `composer test:architecture` enforces the boundary inside this repository; for consumers it is a documented promise, and calling them directly forfeits it.
+
+Domain vocabulary — prefix, suffix, canonical suffix, zero, nil, spec vector — is defined in [CONTEXT.md](CONTEXT.md).
+
 ## Format
 
 ```
@@ -140,5 +163,17 @@ This implementation is verified against the official conformance vectors in [`sp
 ## Testing
 
 ```bash
-composer test
+composer test              # architecture check, then the full suite
+composer test:unit         # the suite alone
+composer test:architecture # dependency allow-list only
 ```
+
+Tests are organised in three layers, which is what keeps the supported surface honest:
+
+| Layer | Exercises |
+| --- | --- |
+| `tests/Contract/` | The supported surface, through `TypeID` only |
+| `tests/Spec/` | Conformance against the vendored [spec vectors](spec/) |
+| `tests/Codec/` | Bit-boundary diagnostics, reaching `Base32` directly |
+
+`tests/Codec/` is the single deliberate exception to the boundary. The codec is an unrolled 26-expression bit-shuffle, and a failure there should name the offending byte rather than report that some UUID failed to round-trip. `composer test:architecture` fails if any other test reaches past `TypeID`.
