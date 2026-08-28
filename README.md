@@ -115,13 +115,13 @@ Caller-invalid input throws `TypeID\Exception\ValidationException`, which extend
 | Exception *message wording* | **Not** supported — may change at any time |
 | `ValidationException` named constructors | **Internal.** The class is supported; these are not |
 | Native `serialize()` / `unserialize()` | Supported for runtime round-tripping only |
-| `TypeID\Base32`, `TypeID\Validator` | **Internal.** No promise; may change or disappear |
+| `TypeID\Base32` | **Internal.** No promise; may change or disappear |
 
 Two notes on the edges of that table:
 
 **Serialization is not a storage format.** `serialize()` round-trips correctly within a process and within a major version, but the serialized representation is not guaranteed stable across versions. Persist `(string) $typeId` and rehydrate with `TypeID::fromString()` instead.
 
-**Internal classes are internal by policy, not by language.** PHP has no package-private visibility for top-level classes, so `Base32` and `Validator` remain autoloadable. `composer test:architecture` enforces the boundary inside this repository; for consumers it is a documented promise, and calling them directly forfeits it.
+**Internal classes are internal by policy, not by language.** PHP has no package-private visibility for top-level classes, so `Base32` remains autoloadable. `composer test:architecture` enforces the boundary inside this repository; for consumers it is a documented promise, and calling it directly forfeits it.
 
 Domain vocabulary — prefix, suffix, canonical suffix, zero, nil, spec vector — is defined in [CONTEXT.md](CONTEXT.md).
 

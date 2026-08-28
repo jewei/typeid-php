@@ -28,13 +28,22 @@ final class TypeID implements JsonSerializable, Stringable
     /** Crockford base32 of the nil UUID — useful as a sentinel/zero value. */
     public const string ZERO_SUFFIX = '00000000000000000000000000';
 
+    /**
+     * A type prefix: lowercase ASCII letters and underscores, at most 63
+     * characters, starting and ending with a letter. May be empty.
+     */
+    private const string PREFIX_PATTERN = '/\A(?:[a-z](?:[a-z_]{0,61}[a-z])?)?\z/';
+
+    /** A UUID in hyphenated or bare hex form, in either case. */
+    private const string UUID_PATTERN = '/\A(?:[0-9a-f]{32}|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\z/i';
+
     /** @throws ValidationException If prefix or suffix fails TypeID spec validation. */
     public function __construct(
         public readonly string $prefix,
         public readonly string $suffix,
     ) {
-        Validator::assertValidPrefix($this->prefix);
-        Validator::assertValidSuffix($this->suffix);
+        self::assertValidPrefix($this->prefix);
+        self::assertValidSuffix($this->suffix);
     }
 
     #[Override]
@@ -63,10 +72,17 @@ final class TypeID implements JsonSerializable, Stringable
             throw ValidationException::malformedPayload();
         }
 
-        $validated = new self($data['prefix'], $data['suffix']);
+        // Validate before assigning, so a rejected payload leaves the object
+        // uninitialised rather than half-populated.
+        //
+        // No test pins this ordering, and none can: PHP discards the object when
+        // __unserialize() throws, so assigning first is not observable from
+        // outside. It is kept as a defensive invariant, maintained by review.
+        self::assertValidPrefix($data['prefix']);
+        self::assertValidSuffix($data['suffix']);
 
-        $this->prefix = $validated->prefix;
-        $this->suffix = $validated->suffix;
+        $this->prefix = $data['prefix'];
+        $this->suffix = $data['suffix'];
     }
 
     /**
@@ -77,7 +93,13 @@ final class TypeID implements JsonSerializable, Stringable
      */
     public static function fromUuid(string $uuid, ?string $prefix = null): self
     {
-        return new self($prefix ?? '', Base32::encode($uuid));
+        if (preg_match(self::UUID_PATTERN, $uuid) !== 1) {
+            throw ValidationException::invalidUuid($uuid);
+        }
+
+        $hex = str_replace('-', '', strtolower($uuid));
+
+        return new self($prefix ?? '', Base32::encodeBytes((string) hex2bin($hex)));
     }
 
     /**
@@ -100,9 +122,19 @@ final class TypeID implements JsonSerializable, Stringable
      */
     public static function fromString(string $value): self
     {
-        [$prefix, $suffix] = Validator::parseTypeID($value);
+        if ($value === '') {
+            throw ValidationException::malformedString('cannot be empty');
+        }
 
-        return new self($prefix, $suffix);
+        if (str_starts_with($value, '_')) {
+            throw ValidationException::malformedString('cannot start with an underscore');
+        }
+
+        $lastUnderscore = strrpos($value, '_');
+
+        return $lastUnderscore === false
+            ? new self('', $value)
+            : new self(substr($value, 0, $lastUnderscore), substr($value, $lastUnderscore + 1));
     }
 
     /**
@@ -151,7 +183,15 @@ final class TypeID implements JsonSerializable, Stringable
     /** Decode the suffix back to its canonical hyphenated UUID string (e.g. '01966b97-8a07-…'). */
     public function toUuid(): string
     {
-        return Base32::decode($this->suffix);
+        $hex = bin2hex($this->bytes());
+
+        return sprintf('%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12),
+        );
     }
 
     /** Decode the suffix to raw 16-byte binary — useful for binary(16) database columns. */
@@ -183,5 +223,21 @@ final class TypeID implements JsonSerializable, Stringable
     public function jsonSerialize(): string
     {
         return $this->toString();
+    }
+
+    /** @throws ValidationException If $prefix is not a valid type prefix. */
+    private static function assertValidPrefix(string $prefix): void
+    {
+        if (preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
+            throw ValidationException::invalidPrefix($prefix);
+        }
+    }
+
+    /** @throws ValidationException If $suffix is not a canonical suffix. */
+    private static function assertValidSuffix(string $suffix): void
+    {
+        if (! Base32::isCanonicalSuffix($suffix)) {
+            throw ValidationException::invalidSuffix($suffix);
+        }
     }
 }

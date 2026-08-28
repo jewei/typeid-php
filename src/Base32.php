@@ -28,11 +28,25 @@ use TypeID\Exception\ValidationException;
  * straight-line expression avoids 26 iterations of loop and index arithmetic.
  * Change it only with a benchmark that shows the loop is no slower.
  *
+ * This module handles bytes, never UUID text: parsing and formatting UUID
+ * strings belongs to TypeID. It does own its domain validation — alphabet,
+ * length, and the 128-bit overflow rule — because a decoder that accepts a
+ * non-canonical suffix is wrong regardless of who called it.
+ *
+ * @see docs/adr/0001-validation-and-codec-ownership.md
+ *
  * @internal Use TypeID for the stable public API.
  */
 final class Base32
 {
     private const string ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
+
+    /**
+     * A canonical suffix: 26 symbols from the strict alphabet, decoding to
+     * exactly 128 bits. 26 base32 characters hold 130 bits, so the leading
+     * symbol must be '7' or lower or the value would overflow a UUID.
+     */
+    private const string CANONICAL_SUFFIX_PATTERN = '/\A[0-7][0123456789abcdefghjkmnpqrstvwxyz]{25}\z/';
 
     private const array DECODE_MAP = [
         '0' => 0,  '1' => 1,  '2' => 2,  '3' => 3,  '4' => 4,
@@ -46,20 +60,14 @@ final class Base32
 
     private function __construct() {}
 
-    /**
-     * Encode a UUID string to a 26-char Crockford base32 suffix.
-     *
-     * @throws ValidationException If $uuid is not a valid UUID.
-     */
-    public static function encode(string $uuid): string
+    /** True when $suffix is a canonical 26-character suffix. */
+    public static function isCanonicalSuffix(string $suffix): bool
     {
-        Validator::assertValidUuid($uuid);
-
-        return self::encodeBytes(hex2bin(str_replace('-', '', strtolower($uuid))));
+        return preg_match(self::CANONICAL_SUFFIX_PATTERN, $suffix) === 1;
     }
 
     /**
-     * Encode 16 raw UUID bytes to a 26-char Crockford base32 suffix.
+     * Encode 16 raw UUID bytes to a canonical 26-character suffix.
      *
      * @throws ValidationException If $bytes is not exactly 16 bytes.
      */
@@ -109,32 +117,15 @@ final class Base32
     }
 
     /**
-     * Decode a 26-char Crockford base32 suffix to its canonical UUID string.
-     * Input is strict: lowercase only, with no ambiguous Crockford characters.
+     * Decode a canonical 26-character suffix to 16 raw UUID bytes.
      *
-     * @throws ValidationException If $base32 is not a valid 26-char Crockford string.
-     */
-    public static function decode(string $base32): string
-    {
-        $hex = bin2hex(self::decodeBytes($base32));
-
-        return sprintf('%s-%s-%s-%s-%s',
-            substr($hex, 0, 8),
-            substr($hex, 8, 4),
-            substr($hex, 12, 4),
-            substr($hex, 16, 4),
-            substr($hex, 20, 12),
-        );
-    }
-
-    /**
-     * Decode a 26-char Crockford base32 suffix to 16 raw UUID bytes.
-     *
-     * @throws ValidationException If $base32 is not a valid TypeID suffix.
+     * @throws ValidationException If $base32 is not a canonical suffix.
      */
     public static function decodeBytes(string $base32): string
     {
-        Validator::assertValidBase32($base32);
+        if (! self::isCanonicalSuffix($base32)) {
+            throw ValidationException::invalidCodecInput($base32);
+        }
 
         $map = self::DECODE_MAP;
         $values = array_map(fn (string $ch): int => $map[$ch], str_split($base32));

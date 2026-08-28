@@ -5,21 +5,25 @@ declare(strict_types=1);
 /**
  * Architecture check: enforces the supported surface documented in the README.
  *
- * TypeID is the only supported entry-point module. Base32 and Validator are
- * internal: PHP cannot make them package-private, so this check enforces in
- * this repository what the compatibility policy promises to consumers.
+ * TypeID is the only supported entry-point module. Base32 is internal: PHP
+ * cannot make it package-private, so this check enforces in this repository
+ * what the compatibility policy promises to consumers.
  *
  * It cannot stop an external consumer from calling an autoloadable class. That
  * outer limit is a documented promise, not a mechanism.
  *
  * Run: composer test:architecture
  */
-const INTERNAL = ['Base32', 'Validator'];
+const INTERNAL = ['Base32'];
 
-/** Production files permitted to reference each internal module. */
+/**
+ * Production files permitted to reference each internal module.
+ *
+ * @see docs/adr/0001-validation-and-codec-ownership.md — Base32 now depends on
+ *      nothing, and TypeID is its only production caller.
+ */
 const PRODUCTION_ALLOW = [
-    'src/TypeID.php' => ['Base32', 'Validator'],
-    'src/Base32.php' => ['Validator'],
+    'src/TypeID.php' => ['Base32'],
 ];
 
 /** Test directories permitted to reference each internal module. */
