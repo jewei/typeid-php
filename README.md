@@ -113,6 +113,7 @@ Caller-invalid input throws `TypeID\Exception\ValidationException`, which extend
 | `Stringable`, `JsonSerializable` behaviour | Supported |
 | `TypeIDException`, `ValidationException`, `GenerationException` | Supported as a catch contract |
 | Exception *message wording* | **Not** supported — may change at any time |
+| `ValidationException` named constructors | **Internal.** The class is supported; these are not |
 | Native `serialize()` / `unserialize()` | Supported for runtime round-tripping only |
 | `TypeID\Base32`, `TypeID\Validator` | **Internal.** No promise; may change or disappear |
 

@@ -66,15 +66,13 @@ final class Base32
     public static function encodeBytes(string $bytes): string
     {
         if (strlen($bytes) !== 16) {
-            throw new ValidationException(
-                'UUID bytes must be exactly 16 bytes, got '.strlen($bytes)
-            );
+            throw ValidationException::invalidByteCount(strlen($bytes));
         }
 
         $unpacked = unpack('C*', $bytes);
 
         if ($unpacked === false) {
-            throw new ValidationException('Failed to unpack UUID bytes');
+            throw ValidationException::unreadableBytes();
         }
 
         $octets = array_values($unpacked);

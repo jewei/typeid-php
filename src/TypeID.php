@@ -60,7 +60,7 @@ final class TypeID implements JsonSerializable, Stringable
     public function __unserialize(array $data): void
     {
         if (! is_string($data['prefix'] ?? null) || ! is_string($data['suffix'] ?? null)) {
-            throw new ValidationException('Invalid serialized TypeID data');
+            throw ValidationException::malformedPayload();
         }
 
         $validated = new self($data['prefix'], $data['suffix']);

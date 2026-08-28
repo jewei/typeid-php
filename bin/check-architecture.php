@@ -106,6 +106,21 @@ foreach ($filesIn('tests') as $file) {
     }
 }
 
+// ── Exception construction ─────────────────────────────────────────────────
+// ValidationException owns message rendering, so every raise must go through a
+// named constructor. Free-form construction risks echoing input unescaped.
+foreach ($filesIn('src') as $file) {
+    if ($file === 'src/Exception/ValidationException.php') {
+        continue;
+    }
+
+    $source = file_get_contents($root.'/'.$file);
+
+    if ($source !== false && preg_match('/new\s+ValidationException\s*\(/', $source) === 1) {
+        $violations[] = "{$file} constructs ValidationException directly (use a named constructor so the value is escaped)";
+    }
+}
+
 // ── Public documentation ───────────────────────────────────────────────────
 // Naming an internal symbol to mark it unsupported is allowed. Showing it as a
 // callable entry point is not.
