@@ -41,7 +41,7 @@ test('UUID and string forms round trip through every prefix shape', function (st
     'many segments' => 'very_long_prefix_with_underscores',
 ]);
 
-test('raw bytes round trip across every byte value', function (): void {
+test('raw control bytes round trip unchanged', function (): void {
     $bytes = implode('', array_map(chr(...), range(0, 15)));
 
     expect(TypeID::fromBytes($bytes, 'binary')->bytes())->toBe($bytes);

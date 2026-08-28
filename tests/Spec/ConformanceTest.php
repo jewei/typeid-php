@@ -95,7 +95,13 @@ test('the maximum suffix is the maximum 128-bit UUID', function (): void {
  * exceed decimal 7."
  */
 test('the leading character never exceeds 7 for any 128-bit value', function (string $fill): void {
-    $suffix = TypeID::fromBytes(hex2bin(str_repeat($fill, 16)))->suffix;
+    $bytes = hex2bin(str_repeat($fill, 16));
+
+    if ($bytes === false) {
+        throw new \RuntimeException("Invalid byte fill: {$fill}");
+    }
+
+    $suffix = TypeID::fromBytes($bytes)->suffix;
 
     expect($suffix[0])->toMatch('/\A[0-7]\z/');
 })->with(['00', 'ff', '80', '7f', 'aa', '55', '0f', 'f0']);

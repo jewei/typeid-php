@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TypeID\Tests\Support;
 
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * A deliberately slow Base32 oracle for tests.
@@ -34,7 +35,7 @@ final class ReferenceBase32
         $encoded = '';
 
         foreach (str_split($bits, 5) as $group) {
-            $encoded .= self::ALPHABET[bindec($group)];
+            $encoded .= self::ALPHABET[self::binaryToInt($group)];
         }
 
         return $encoded;
@@ -65,9 +66,20 @@ final class ReferenceBase32
         $bytes = '';
 
         foreach (str_split(substr($bits, 2), 8) as $octet) {
-            $bytes .= chr(bindec($octet));
+            $bytes .= chr(self::binaryToInt($octet));
         }
 
         return $bytes;
+    }
+
+    private static function binaryToInt(string $bits): int
+    {
+        $value = bindec($bits);
+
+        if (! is_int($value)) {
+            throw new RuntimeException('Binary test group exceeded integer range');
+        }
+
+        return $value;
     }
 }

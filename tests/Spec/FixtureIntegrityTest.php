@@ -8,28 +8,33 @@ test('loads every vendored spec vector', function (): void {
 });
 
 test('spec vector names are present and unique', function (): void {
-    $names = array_column([...validSpecVectors(), ...invalidSpecVectors()], 'name');
+    $names = [];
 
-    expect($names)->each->toBeString()->not->toBeEmpty()
-        ->and(array_unique($names))->toHaveCount(30);
+    foreach ([...validSpecVectors(), ...invalidSpecVectors()] as $vector) {
+        $name = specVectorString($vector, 'name');
+        expect($name)->not()->toBeEmpty();
+        $names[] = $name;
+    }
+
+    expect(array_unique($names))->toHaveCount(30);
 });
 
 test('valid spec vectors have the required fields', function (): void {
     foreach (validSpecVectors() as $vector) {
-        expect(array_keys($vector))->toBe(['name', 'typeid', 'prefix', 'uuid'])
-            ->and($vector['name'])->toBeString()->not->toBeEmpty()
-            ->and($vector['typeid'])->toBeString()->not->toBeEmpty()
-            ->and($vector['prefix'])->toBeString()
-            ->and($vector['uuid'])->toBeString()->not->toBeEmpty();
+        expect(array_keys($vector))->toBe(['name', 'typeid', 'prefix', 'uuid']);
+        expect(specVectorString($vector, 'name'))->not()->toBeEmpty();
+        expect(specVectorString($vector, 'typeid'))->not()->toBeEmpty();
+        expect(specVectorString($vector, 'prefix'))->toBeString();
+        expect(specVectorString($vector, 'uuid'))->not()->toBeEmpty();
     }
 });
 
 test('invalid spec vectors have the required fields', function (): void {
     foreach (invalidSpecVectors() as $vector) {
-        expect(array_keys($vector))->toBe(['name', 'typeid', 'description'])
-            ->and($vector['name'])->toBeString()->not->toBeEmpty()
-            ->and($vector['typeid'])->toBeString()
-            ->and($vector['description'])->toBeString()->not->toBeEmpty();
+        expect(array_keys($vector))->toBe(['name', 'typeid', 'description']);
+        expect(specVectorString($vector, 'name'))->not()->toBeEmpty();
+        expect(specVectorString($vector, 'typeid'))->toBeString();
+        expect(specVectorString($vector, 'description'))->not()->toBeEmpty();
     }
 });
 
@@ -59,6 +64,6 @@ test('dataset mapping rejects duplicate vector names instead of discarding them'
 
     expect(fn (): array => specVectorDataset(
         $vectors,
-        fn (array $vector): array => [$vector['typeid']],
+        fn (array $vector): array => [specVectorString($vector, 'typeid')],
     ))->toThrow(\RuntimeException::class, 'Duplicate spec vector name: duplicate');
 });

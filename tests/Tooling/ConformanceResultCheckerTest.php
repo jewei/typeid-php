@@ -142,7 +142,7 @@ test('rejects duplicate execution that hides a missing vector', function (): voi
     $valid = conformanceValidVectorNames();
     $valid[1] = $valid[0];
 
-    expect(fn () => assertConformanceExecution(conformanceJunitXml(valid: $valid)))
+    expect(fn () => assertConformanceExecution(conformanceJunitXml(valid: array_values($valid))))
         ->toThrow(
             \RuntimeException::class,
             'Expected vector did not execute exactly once: Tests.Spec.ValidTest dataset nil',

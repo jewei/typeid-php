@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use InvalidArgumentException;
 use TypeID\Base32;
 use TypeID\Exception\ValidationException;
 use TypeID\Tests\Support\ReferenceBase32;
@@ -44,7 +43,10 @@ test('the optimized codec matches the reference for every saturated byte positio
 test('the optimized codec matches the reference at boundaries', function (string $hex) use ($expectCodecToMatchReference): void {
     $bytes = hex2bin($hex);
 
-    expect($bytes)->not->toBeFalse();
+    if ($bytes === false) {
+        throw new \RuntimeException("Invalid boundary hex: {$hex}");
+    }
+
     $expectCodecToMatchReference($bytes, "boundary {$hex}");
 })->with([
     'nil' => str_repeat('00', 16),
@@ -62,27 +64,25 @@ test('the optimized codec matches the reference at boundaries', function (string
 test('the optimized codec matches the reference for a deterministic hash corpus', function () use ($expectCodecToMatchReference): void {
     foreach (range(0, 511) as $integer) {
         $digest = hash('sha256', (string) $integer, true);
-        $expectCodecToMatchReference(substr($digest, 0, 16), "sha256({$integer})");
+        $bytes = substr($digest, 0, 16);
+        $expectCodecToMatchReference($bytes, "sha256({$integer})");
     }
 });
 
 test('the optimized codec and reference match the official vectors', function () use ($expectCodecToMatchReference): void {
     foreach (validSpecVectors() as $vector) {
-        $name = $vector['name'] ?? null;
-        $typeid = $vector['typeid'] ?? null;
-        $uuid = $vector['uuid'] ?? null;
-
-        expect($name)->toBeString()
-            ->and($typeid)->toBeString()
-            ->and($uuid)->toBeString();
-
+        $name = specVectorString($vector, 'name');
+        $typeid = specVectorString($vector, 'typeid');
+        $uuid = specVectorString($vector, 'uuid');
         $separator = strrpos($typeid, '_');
         $suffix = $separator === false ? $typeid : substr($typeid, $separator + 1);
         $bytes = hex2bin(str_replace('-', '', $uuid));
 
-        expect($bytes)->not->toBeFalse()
-            ->and(ReferenceBase32::encodeBytes($bytes))->toBe($suffix, "official vector {$name}: reference encoding differs");
+        if ($bytes === false) {
+            throw new \RuntimeException("Invalid UUID in official vector: {$name}");
+        }
 
+        expect(ReferenceBase32::encodeBytes($bytes))->toBe($suffix, "official vector {$name}: reference encoding differs");
         $expectCodecToMatchReference($bytes, "official vector {$name}");
         expect(ReferenceBase32::decodeBytes($suffix))->toBe($bytes, "official vector {$name}: reference decoding differs");
     }
@@ -118,12 +118,12 @@ foreach (str_split('89abcdefghjkmnpqrstvwxyz') as $leading) {
 
 test('the optimized decoder and reference reject values outside the encoded domain', function (string $encoded): void {
     expect(fn () => Base32::decodeBytes($encoded))->toThrow(ValidationException::class);
-    expect(fn () => ReferenceBase32::decodeBytes($encoded))->toThrow(InvalidArgumentException::class);
+    expect(fn () => ReferenceBase32::decodeBytes($encoded))->toThrow(\InvalidArgumentException::class);
 })->with($invalidEncodedValues);
 
 test('the optimized encoder and reference reject byte strings that are not exactly 16 bytes', function (string $bytes): void {
     expect(fn () => Base32::encodeBytes($bytes))->toThrow(ValidationException::class);
-    expect(fn () => ReferenceBase32::encodeBytes($bytes))->toThrow(InvalidArgumentException::class);
+    expect(fn () => ReferenceBase32::encodeBytes($bytes))->toThrow(\InvalidArgumentException::class);
 })->with([
     'empty' => '',
     'fifteen' => str_repeat("\0", 15),

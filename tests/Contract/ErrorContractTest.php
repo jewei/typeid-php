@@ -70,8 +70,11 @@ test('ValidationException separates caller error from operational failure', func
 test('ValidationException can only be created through a named constructor', function (): void {
     $constructor = (new \ReflectionClass(ValidationException::class))->getConstructor();
 
-    expect($constructor)->not->toBeNull()
-        ->and($constructor->isPrivate())->toBeTrue();
+    if ($constructor === null) {
+        throw new \RuntimeException('ValidationException must declare a constructor');
+    }
+
+    expect($constructor->isPrivate())->toBeTrue();
 });
 
 /** Validation messages contain bounded ASCII metadata, not rejected input. */

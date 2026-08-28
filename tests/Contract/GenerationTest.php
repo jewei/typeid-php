@@ -81,6 +81,7 @@ test('generate wraps invalid UUID factory return types', function (): void {
     {
         public function uuid7(?\DateTimeInterface $dateTime = null): UuidInterface
         {
+            // @phpstan-ignore return.type (deliberately violate the dependency contract)
             return null;
         }
     };

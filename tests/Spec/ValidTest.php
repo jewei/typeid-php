@@ -16,6 +16,10 @@ test('validate valid typeids', function (string $typeid, string $prefix, string 
     expect($tid->toUuid())->toBe($uuid);
 
     $bytes = hex2bin(str_replace('-', '', $uuid));
-    expect($bytes)->not->toBeFalse();
+
+    if ($bytes === false) {
+        throw new \RuntimeException("Invalid UUID in valid spec vector: {$uuid}");
+    }
+
     expect((string) TypeID::fromBytes($bytes, $prefix))->toBe($typeid);
 })->with('valid typeids');

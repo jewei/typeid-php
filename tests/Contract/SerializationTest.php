@@ -20,14 +20,22 @@ test('native serialization round trips a TypeID', function (): void {
     $typeId = new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x');
     $restored = unserialize(serialize($typeId));
 
-    expect($restored)->toBeInstanceOf(TypeID::class)
-        ->and($restored->equals($typeId))->toBeTrue();
+    if (! $restored instanceof TypeID) {
+        throw new \RuntimeException('Serialized TypeID restored as an unexpected type');
+    }
+
+    expect($restored->equals($typeId))->toBeTrue();
 });
 
 test('native serialization round trips a bare TypeID', function (): void {
     $typeId = new TypeID('', '01jsnsf2g7e2saxdjvz3j6tc3x');
+    $restored = unserialize(serialize($typeId));
 
-    expect(unserialize(serialize($typeId))->equals($typeId))->toBeTrue();
+    if (! $restored instanceof TypeID) {
+        throw new \RuntimeException('Serialized bare TypeID restored as an unexpected type');
+    }
+
+    expect($restored->equals($typeId))->toBeTrue();
 });
 
 /** TypeID rejects invalid fields during unserialization. */

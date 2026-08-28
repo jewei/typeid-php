@@ -21,7 +21,27 @@ function loadSpecVectors(string $file): array
         throw new \RuntimeException("Spec vectors must be a JSON list: {$file}");
     }
 
-    return $vectors;
+    $normalized = [];
+
+    foreach ($vectors as $vector) {
+        if (! is_array($vector)) {
+            throw new \RuntimeException("Every spec vector must be an object: {$file}");
+        }
+
+        $normalizedVector = [];
+
+        foreach ($vector as $key => $value) {
+            if (! is_string($key)) {
+                throw new \RuntimeException("Spec vector keys must be strings: {$file}");
+            }
+
+            $normalizedVector[$key] = $value;
+        }
+
+        $normalized[] = $normalizedVector;
+    }
+
+    return $normalized;
 }
 
 /** @return list<array<string, mixed>> */
@@ -55,6 +75,12 @@ function specProvenance(): array
         throw new \RuntimeException('Spec provenance has an invalid schema');
     }
 
+    foreach ($provenance['sha256'] as $file => $hash) {
+        if (! is_string($file) || ! is_string($hash)) {
+            throw new \RuntimeException('Spec provenance hashes must map filenames to strings');
+        }
+    }
+
     return $provenance;
 }
 
@@ -86,12 +112,28 @@ function specVectorDataset(array $vectors, callable $toArguments): array
     return $dataset;
 }
 
+/** @param array<string, mixed> $vector */
+function specVectorString(array $vector, string $field): string
+{
+    $value = $vector[$field] ?? null;
+
+    if (! is_string($value)) {
+        throw new \RuntimeException("Spec vector field must be a string: {$field}");
+    }
+
+    return $value;
+}
+
 dataset('valid typeids', specVectorDataset(
     validSpecVectors(),
-    fn (array $vector): array => [$vector['typeid'], $vector['prefix'], $vector['uuid']],
+    fn (array $vector): array => [
+        specVectorString($vector, 'typeid'),
+        specVectorString($vector, 'prefix'),
+        specVectorString($vector, 'uuid'),
+    ],
 ));
 
 dataset('invalid typeids', specVectorDataset(
     invalidSpecVectors(),
-    fn (array $vector): array => [$vector['typeid']],
+    fn (array $vector): array => [specVectorString($vector, 'typeid')],
 ));
