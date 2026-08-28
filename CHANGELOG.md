@@ -5,7 +5,71 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — 3.0.0
+## [Unreleased] — 4.0.0
+
+### Removed
+
+- **BREAKING** — `TypeID\Validator` is deleted, along with `isValidPrefix()`,
+  `isValidSuffix()`, `isValidUuid()`, the four `assertValid*()` guards, and
+  `parseTypeID()`. It was marked `@internal` and documented as unsupported, but
+  removal is observable: code that ignored the marker will fatal. Catch
+  `ValidationException` from the relevant `TypeID` factory instead of asking a
+  predicate first. See [ADR-0001](docs/adr/0001-validation-and-codec-ownership.md).
+- **BREAKING** — `Base32::encode()` and `Base32::decode()`, which took and
+  returned UUID *strings*. The codec is now byte-only. `Base32` was already
+  `@internal`; use `TypeID::fromUuid()` and `TypeID::toUuid()`.
+
+### Changed
+
+- Each validation rule now lives with the concept it defines: the prefix grammar
+  and UUID text handling on `TypeID`, suffix canonicality on `Base32`, message
+  rendering on `ValidationException`. `Validator` had eight public methods over
+  three regexes, expressed one suffix rule under three names, and had exactly
+  one production caller per rule — so it concentrated nothing.
+- `TypeID::fromString()` owns the whole parse rather than splitting the string
+  in one module and validating the parts in another.
+- `TypeID::__unserialize()` calls the validation guards directly instead of
+  constructing and discarding a throwaway instance. Validate-before-assign is
+  preserved.
+
+### Added
+
+- `CONTEXT.md` — the domain glossary, anchored to TypeID specification 0.3.0.
+  Defines *canonical suffix* (so the 128-bit overflow rule has a name) and
+  separates *nil UUID* from *zero TypeID*.
+- `docs/adr/` — [ADR-0001](docs/adr/0001-validation-and-codec-ownership.md) on
+  validation and codec ownership, and
+  [ADR-0002](docs/adr/0002-read-paths-keep-revalidating.md) recording a measured
+  decision *not* to remove redundant read-side validation.
+- `composer test:architecture` — enforces the supported-surface dependency
+  allow-list in CI. PHP has no package-private visibility for top-level
+  classes, so the boundary is policy plus a check rather than a language
+  guarantee.
+- Named constructors on `ValidationException` (`invalidPrefix()`,
+  `invalidSuffix()`, `invalidUuid()`, `invalidCodecInput()`,
+  `invalidByteCount()`, `malformedString()`, `malformedPayload()`,
+  `unreadableBytes()`). They are `@internal`; the exception class stays
+  supported. Escaping of rejected input is now private to the exception and
+  cannot be skipped at a call site.
+
+### Documentation
+
+- The README documents the supported surface as a table, and records two
+  previously-implicit decisions: the public constructor **is** supported, and
+  `serialize()` is supported for runtime round-tripping only — the serialized
+  form is not a durable cross-version storage format. Persist
+  `(string) $typeId` instead.
+- Exception *message wording* is explicitly outside the compatibility contract.
+
+### Internal
+
+- Tests are reorganised into three layers: `tests/Contract/` (through `TypeID`
+  only), `tests/Spec/` (vendored conformance vectors), and `tests/Codec/` (the
+  single deliberate exception, for bit-boundary diagnostics). 34 test call
+  sites previously reached past the seam into `Base32` and `Validator`, which
+  made the effective test surface the implementation layout.
+
+## [3.0.0]
 
 ### Removed
 
