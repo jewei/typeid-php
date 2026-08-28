@@ -3,4 +3,5 @@ parameters:
     phpVersion: 80300
     paths:
         - src
-        - bin
+        - tests/Tooling/ArchitectureChecker.php
+        - tests/Tooling/check-architecture.php

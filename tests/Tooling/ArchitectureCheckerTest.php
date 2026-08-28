@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use TypeID\Development\ArchitectureChecker;
 
-require_once __DIR__.'/../../bin/ArchitectureChecker.php';
+require_once __DIR__.'/ArchitectureChecker.php';
 
 test('the architecture checker finds internal references in PHP name tokens', function (string $source): void {
     expect(ArchitectureChecker::internalReferences($source, ['Base32']))->toBe(['Base32']);

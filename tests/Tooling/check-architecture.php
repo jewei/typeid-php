@@ -28,7 +28,7 @@ const TEST_ALLOW = [
     'tests/Codec/' => ['Base32'],
 ];
 
-$root = dirname(__DIR__);
+$root = dirname(__DIR__, 2);
 $violations = [];
 
 /** @return list<string> */

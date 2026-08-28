@@ -33,7 +33,7 @@
             "@test:unit"
         ],
         "test:unit": "@php vendor/bin/pest",
-        "test:architecture": "@php bin/check-architecture.php",
+        "test:architecture": "@php tests/Tooling/check-architecture.php",
         "test:types": "@php vendor/bin/phpstan analyse --no-progress"
     },
     "scripts-descriptions": {
