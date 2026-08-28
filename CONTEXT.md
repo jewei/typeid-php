@@ -1,67 +1,93 @@
-# TypeID
+# TypeID terminology
 
-A PHP implementation of [TypeID](https://github.com/jetify-com/typeid): type-safe, K-sortable identifiers that pair a human-readable type label with a UUID. This glossary is anchored to **TypeID specification 0.3.0**, vendored at [`spec/README.md`](spec/README.md); where this package's language differs from the spec's, the difference is noted below.
+This glossary defines the terms used in the source, tests, and README. The definitions follow [TypeID specification 0.3.0](spec/README.md).
 
-The vendored specification and its conformance vectors are copied verbatim from
-[`jetify-com/typeid`](https://github.com/jetify-com/typeid/tree/main/spec) and were last verified
-byte-identical to upstream `main` on 27 August 2026. `spec/valid.json` and `spec/invalid.json` are
-derivations of the `.yml` files, and carry the same 9 valid and 21 invalid cases. This package
-implements no deviation from the specification.
+The repository vendors the specification and its conformance vectors in [`spec/`](spec/). The YAML files come from [`jetify-com/typeid`](https://github.com/jetify-com/typeid/tree/main/spec). The JSON files contain the same vectors in the format used by the test suite. This package implements the specification without deviations.
 
-## Language
+## Value and parts
 
-### The value and its parts
+### TypeID
 
-**TypeID**:
-A type prefix and a UUID suffix, joined by a separator. The whole value, not either half.
-_Avoid_: ID, identifier, TID
+A complete value made of a type prefix and a suffix joined by a separator.
 
-**Type prefix**:
-The label denoting what kind of entity the TypeID names — `user`, `order`, `invoice`. Lowercase ASCII letters and underscores only, at most 63 characters, starting and ending with a letter. May be empty.
-_Avoid_: type, namespace, tag, scope
+Avoid: ID, identifier, TID
 
-**Separator**:
-The single underscore between type prefix and suffix. Omitted entirely when the prefix is empty.
-_Avoid_: delimiter, divider
+### Type prefix
 
-**Suffix**:
-The 26-character base32 encoding of the TypeID's 128 bits. Always present, always exactly 26 characters.
-_Avoid_: UUID suffix (the spec's term — reserved here for when the distinction from the decoded UUID matters), base32 string, code
+The label that names the entity kind. Examples include `user`, `order`, and `invoice`. A type prefix can be empty. A non-empty type prefix contains at most 63 lowercase ASCII letters and underscores. It starts and ends with a letter. Consecutive underscores are valid.
 
-**Bare TypeID**:
-A TypeID whose type prefix is empty, rendered as the suffix alone with no separator. Valid, and used where an application wants to elide type information.
-_Avoid_: prefixless, anonymous TypeID, naked TypeID
+Avoid: type, namespace, tag, scope
 
-### Encoding
+### Separator
 
-**Strict alphabet**:
-The 32 symbols `0123456789abcdefghjkmnpqrstvwxyz`. Crockford's alphabet, but without Crockford's leniency: lowercase only, no hyphens, and no two symbols ever decode to the same value.
-_Avoid_: Crockford base32 (implies the lenient decoding this package rejects)
+The single underscore between a non-empty type prefix and its suffix. A bare TypeID has no separator.
 
-**Canonical suffix**:
-A suffix that uses only the strict alphabet and decodes to exactly 128 bits. Because 26 base32 characters can hold 130 bits, the first character must be `7` or lower; `8zzzzzzzzzzzzzzzzzzzzzzzzz` is well-formed base32 but not canonical.
-_Avoid_: valid suffix (too weak — it hides the overflow rule that makes this term necessary)
+Avoid: delimiter, divider
 
-**Overflow**:
-The condition a canonical suffix excludes: a 26-character string whose leading character exceeds `7`, and which would therefore denote a value larger than 128 bits.
-_Avoid_: out of range, too large
+### Suffix
 
-### Zero and nil
+The 26-character base32 encoding of the TypeID's 128-bit UUID. Every TypeID has one suffix.
 
-**Nil UUID**:
-The all-zero 128-bit UUID. A property of the decoded UUID.
-_Avoid_: null UUID, empty UUID
+"UUID suffix" is reserved for text that distinguishes the encoded suffix from the decoded UUID.
 
-**Zero TypeID**:
-A TypeID whose suffix encodes the nil UUID. Distinct from the nil UUID: *nil* describes the 128 bits, *zero* describes the TypeID built from them. A zero TypeID still carries a type prefix, so `user_00000000000000000000000000` and `order_00000000000000000000000000` are both zero and are not equal.
-_Avoid_: nil TypeID, empty TypeID, null TypeID
+Avoid: base32 string, code
 
-### Properties and conformance
+### Bare TypeID
 
-**K-sortable**:
-The property that TypeIDs sharing a type prefix and backed by UUIDv7 sort lexicographically by their millisecond timestamps. Values generated in the same millisecond by separate processes have no guaranteed creation order. Ramsey's default generator adds monotonic ordering only among successive calls in one process. Zero TypeIDs and TypeIDs built from other UUID versions do not have this property.
-_Avoid_: sortable, time-ordered, monotonic
+A TypeID with an empty type prefix. Its canonical string contains only the suffix.
 
-**Spec vector**:
-A named conformance case vendored from the TypeID specification, in [`spec/valid.json`](spec/valid.json) or [`spec/invalid.json`](spec/invalid.json). The authority on what this package must accept and reject.
-_Avoid_: fixture, test case, sample
+Avoid: prefixless TypeID, anonymous TypeID, naked TypeID
+
+## Encoding
+
+### Strict alphabet
+
+The 32 characters `0123456789abcdefghjkmnpqrstvwxyz`. The decoder accepts lowercase characters only. It rejects hyphens and character aliases.
+
+Avoid: Crockford base32. That name implies lenient decoding.
+
+### Canonical suffix
+
+A suffix that contains 26 characters from the strict alphabet and encodes a 128-bit value. The first character cannot exceed `7`.
+
+A base32 string of 26 characters can hold 130 bits. The first-character limit keeps the leading two bits at zero. For example, `8zzzzzzzzzzzzzzzzzzzzzzzzz` uses the strict alphabet but is not canonical.
+
+Avoid: valid suffix. That phrase does not name the 128-bit limit.
+
+### Overflow
+
+A 26-character base32 value greater than `7zzzzzzzzzzzzzzzzzzzzzzzzz`. Such a value needs more than 128 bits, so the decoder rejects it.
+
+Avoid: out of range, too large
+
+## Zero and nil values
+
+### Nil UUID
+
+A UUID whose 128 bits are all zero.
+
+Avoid: null UUID, empty UUID
+
+### Zero TypeID
+
+A TypeID whose suffix encodes the nil UUID. "Nil" describes the decoded UUID. "Zero" describes the TypeID.
+
+The type prefix remains part of a zero TypeID. The values `user_00000000000000000000000000` and `order_00000000000000000000000000` are both zero TypeIDs, but they are not equal.
+
+Avoid: nil TypeID, empty TypeID, null TypeID
+
+## Ordering and conformance
+
+### K-sortable
+
+The ordering property of TypeIDs that share a type prefix and encode UUIDv7 values. Their lexicographic order follows the millisecond timestamps in those UUIDs.
+
+Separate processes can generate values in the same millisecond without a shared creation order. Ramsey's default UUIDv7 generator orders successive calls only within one PHP process. Zero TypeIDs and TypeIDs created from other UUID versions are not K-sortable.
+
+Avoid: sortable, time-ordered, monotonic
+
+### Spec vector
+
+A named valid or invalid case from [`spec/valid.json`](spec/valid.json) or [`spec/invalid.json`](spec/invalid.json). Spec vectors define the strings that the package must accept or reject.
+
+Avoid: fixture, test case, sample
