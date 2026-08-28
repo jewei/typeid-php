@@ -23,8 +23,9 @@ use TypeID\Exception\ValidationException;
  *   c[ 9] = b[5]&0x1F                       bits  84- 80
  *   Characters 2 to 25 repeat an 8-character, 5-byte pattern three times.
  *
- * The expressions stay unrolled because every TypeID creation and parse uses
- * them. Replace them with a loop only if a benchmark shows no slowdown.
+ * The expressions are deliberately unrolled. The codec tests compare each
+ * fixed bit boundary with a reference implementation. Structural changes
+ * should preserve that differential coverage.
  *
  * This class handles bytes, not UUID text. It validates suffix length,
  * alphabet, and the 128-bit limit before decoding.

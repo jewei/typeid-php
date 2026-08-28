@@ -13,8 +13,10 @@ use TypeID\Exception\GenerationException;
 use TypeID\Exception\ValidationException;
 
 /**
- * A TypeID value. Values from generate() are globally unique. Values with the
- * same type prefix are K-sortable by their UUIDv7 millisecond timestamp.
+ * A TypeID value. Values from generate() are designed for global uniqueness
+ * with negligible collision probability when backed by a correct cryptographic
+ * random source. Values with the same type prefix are K-sortable by their
+ * UUIDv7 millisecond timestamp.
  *
  * Format: {prefix}_{suffix}, for example user_01jsnsf2g7e2saxdjvz3j6tc3x
  *
@@ -81,8 +83,9 @@ final class TypeID implements JsonSerializable, Stringable
     }
 
     /**
-     * Create a TypeID from any valid UUID string, including v4, v7, and nil.
-     * Uppercase hex is accepted and normalized to lowercase.
+     * Accept a UUID as 32 hexadecimal characters or canonical 8-4-4-4-12
+     * notation. Hexadecimal letters may be uppercase or lowercase and are
+     * normalized internally.
      *
      * @throws ValidationException If $uuid or $prefix fails validation.
      */
@@ -180,7 +183,9 @@ final class TypeID implements JsonSerializable, Stringable
 
     /**
      * Create the nil TypeID (all 128 UUID bits are zero).
-     * Useful as a sentinel, placeholder, or default FK value.
+     * Useful as a sentinel or placeholder. Use it as a foreign-key value only
+     * when the data model defines a sentinel record; use a nullable foreign key
+     * for an absent relationship.
      *
      * The nil UUID has no version or variant bits. The result is not UUIDv7 or
      * K-sortable. The TypeID spec includes the nil suffix as a valid case.

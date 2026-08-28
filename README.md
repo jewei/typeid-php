@@ -15,7 +15,7 @@ A TypeID joins a type prefix, such as `user` or `invoice`, to a UUID encoded as 
 user_01jsnsf2g7e2saxdjvz3j6tc3x
 ```
 
-Generated TypeIDs use UUIDv7. TypeIDs with the same type prefix sort by their millisecond timestamps. Ramsey's default UUIDv7 generator also orders successive values within one PHP process. Separate processes and hosts do not share that ordering state.
+Generated TypeIDs use UUIDv7. With a correct cryptographic random source, they are designed for global uniqueness with negligible collision probability. TypeIDs with the same type prefix sort by their millisecond timestamps. Ramsey's default UUIDv7 generator also orders successive values within one PHP process. Separate processes and hosts do not share that ordering state.
 
 The package has these properties:
 
@@ -65,6 +65,40 @@ $id = TypeID::fromUuid(
 echo $id; // invoice_01jsnsf2g7e2saxdjvz3j6tc3x
 ```
 
+### Enforce domain-specific identifier types
+
+A type prefix makes identifier intent visible at runtime, but every value is still a `TypeID`. PHP cannot prevent a `user_...` TypeID from being passed where an `order_...` TypeID was expected. Wrap `TypeID` when method signatures must distinguish domain identifiers:
+
+```php
+final readonly class UserId implements Stringable
+{
+	private function __construct(private TypeID $value) {}
+
+	public static function generate(): self
+	{
+		return new self(TypeID::generate('user'));
+	}
+
+	public static function fromString(string $value): self
+	{
+		$typeId = TypeID::fromString($value);
+
+		if ($typeId->prefix !== 'user') {
+			throw new InvalidArgumentException('Expected a user TypeID');
+		}
+
+		return new self($typeId);
+	}
+
+	public function __toString(): string
+	{
+		return $this->value->toString();
+	}
+}
+```
+
+An `OrderId` wrapper can enforce the `order` type prefix, making `UserId` and `OrderId` distinct PHP types.
+
 ## Store TypeIDs
 
 For text columns, store the canonical string and restore it with `TypeID::fromString()`:
@@ -81,7 +115,7 @@ $stored = $id->bytes();
 $restored = TypeID::fromBytes($stored, 'invoice');
 ```
 
-Do not use native PHP serialization as a persistent storage format. The package supports `serialize()` and `unserialize()` for runtime round trips within one major version.
+Use native PHP serialization only with trusted data and for runtime round trips within one major version. Never pass untrusted input to `unserialize()`. Store or transmit the canonical TypeID string instead.
 
 `json_encode()` writes the canonical string:
 
@@ -103,11 +137,11 @@ var_export($zero->isNonZero()); // false
 echo $zero; // user_00000000000000000000000000
 ```
 
-A zero TypeID is not UUIDv7 and is not K-sortable. The same limit applies to TypeIDs created from non-v7 UUIDs.
+A zero TypeID is not UUIDv7 and is not K-sortable. The same limit applies to TypeIDs created from non-v7 UUIDs. Use a zero TypeID as a foreign-key value only when the data model defines a sentinel record. For an absent relationship, a nullable foreign key is generally clearer.
 
 ## Handle errors
 
-Invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. UUID generation failures throw `TypeID\Exception\GenerationException`, which extends `RuntimeException`.
+Invalid input throws `TypeID\Exception\ValidationException`, which extends `InvalidArgumentException`. The constructor and all factories can throw it. `generate()` can additionally throw `TypeID\Exception\GenerationException`, which extends `RuntimeException`, when UUID generation fails.
 
 Catch `TypeID\Exception\TypeIDException` to handle either package exception:
 
@@ -129,7 +163,7 @@ Validation messages identify the failed rule and may report the input length. Th
 | --- | --- | --- |
 | `TypeID::generate(?string $prefix = null)` | `TypeID` | Creates a TypeID backed by UUIDv7. |
 | `TypeID::fromString(string $value)` | `TypeID` | Parses a canonical string or a bare suffix. |
-| `TypeID::fromUuid(string $uuid, ?string $prefix = null)` | `TypeID` | Accepts any valid UUID string, including the nil UUID. |
+| `TypeID::fromUuid(string $uuid, ?string $prefix = null)` | `TypeID` | Accepts 32 hexadecimal characters or canonical 8-4-4-4-12 notation in either letter case. |
 | `TypeID::fromBytes(string $bytes, ?string $prefix = null)` | `TypeID` | Accepts exactly 16 UUID bytes. |
 | `TypeID::zero(?string $prefix = null)` | `TypeID` | Creates a TypeID backed by the nil UUID. |
 | `new TypeID(string $prefix, string $suffix)` | `TypeID` | Validates both arguments. |
@@ -195,7 +229,7 @@ A canonical TypeID string contains between 26 and 90 characters. The maximum con
 
 ## Compatibility policy
 
-`TypeID` is the only supported production entry point. The exception classes are supported catch types. This table defines the compatibility promise within a major version:
+`TypeID` is the only supported production entry point. The exception classes are supported catch types. Public property and parameter names are stable within a major version and may be used with PHP named arguments. This table defines the compatibility promise within a major version:
 
 | Element | Status |
 | --- | --- |

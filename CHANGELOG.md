@@ -66,6 +66,12 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Documentation
 
+- UUID input documentation now names the two accepted text forms. Uniqueness is
+  described probabilistically, and type prefixes are distinguished from PHP
+  domain types with a wrapper example.
+- Public parameter names are stable within a major version. Native PHP
+  serialization is limited to trusted data, and zero TypeIDs are recommended
+  as foreign keys only for data models with sentinel records.
 - The README documents the supported surface as a table, and records two
   previously-implicit decisions: the public constructor **is** supported, and
   `serialize()` is supported for runtime round-tripping only — the serialized
