@@ -65,11 +65,3 @@ _Avoid_: sortable, time-ordered, monotonic
 **Spec vector**:
 A named conformance case vendored from the TypeID specification, in [`spec/valid.json`](spec/valid.json) or [`spec/invalid.json`](spec/invalid.json). The authority on what this package must accept and reject.
 _Avoid_: fixture, test case, sample
-
-## Not in this glossary
-
-**The supported surface** — which symbols carry a compatibility promise — is consumer-facing policy and lives in the [README](README.md).
-
-**The trust model** — which entry points validate which inputs, and which paths may rely on an established invariant — is an implementation decision and lives in [`docs/adr/`](docs/adr/).
-
-Both were considered for this file and deliberately excluded: this is a glossary of the domain, not a specification of the package.

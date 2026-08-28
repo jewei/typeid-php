@@ -8,7 +8,7 @@ use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 
 /**
- * Every rejecting public operation, keyed by the failure it provokes.
+ * Returns each rejecting public call, keyed by its failure case.
  *
  * @return array<string, callable(): mixed>
  */
@@ -29,10 +29,7 @@ function rejectingOperations(): array
     ];
 }
 
-/**
- * TypeIDException is an interface, so it needs a catch rather than toThrow(),
- * which reads a non-class string as an expected message.
- */
+/** Pest treats an interface passed to toThrow() as message text. */
 test('every rejecting operation is catchable as TypeIDException', function (): void {
     foreach (rejectingOperations() as $name => $operation) {
         try {
@@ -77,10 +74,7 @@ test('ValidationException can only be created through a named constructor', func
         ->and($constructor->isPrivate())->toBeTrue();
 });
 
-/**
- * Rejected values may be large, sensitive, or unsafe for logs. Messages expose
- * only bounded ASCII metadata and never include the value itself.
- */
+/** Validation messages contain bounded ASCII metadata, not rejected input. */
 test('validation messages are bounded printable ASCII', function (): void {
     foreach (rejectingOperations() as $name => $operation) {
         try {

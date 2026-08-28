@@ -9,12 +9,8 @@ use InvalidArgumentException;
 /**
  * Thrown when caller input fails TypeID validation.
  *
- * Construct through the named constructors below. Messages contain bounded
- * metadata rather than rejected values, which may be large, sensitive, or
- * unsafe to write to a log.
- *
- * The exception class is part of the supported surface. Its message wording is
- * not, and the named constructors are internal.
+ * Named constructors keep rejected values out of log messages. The exception
+ * class is public, but its message text and named constructors are internal.
  */
 final class ValidationException extends InvalidArgumentException implements TypeIDException
 {
@@ -42,8 +38,7 @@ final class ValidationException extends InvalidArgumentException implements Type
     }
 
     /**
-     * Input rejected by the codec itself: wrong length, a symbol outside the
-     * strict alphabet, or a value that would overflow 128 bits.
+     * The codec rejected the length, alphabet, or 128-bit range.
      *
      * @internal
      */

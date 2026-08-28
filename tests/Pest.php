@@ -3,8 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Read a spec conformance fixture from spec/ and shape it into a Pest dataset
- * keyed by the fixture's own case name, so failures name the offending vector.
+ * Loads a spec file as a Pest dataset keyed by case name.
  *
  * @param  callable(array<string, string>): array<int, string>  $toArguments
  * @return array<string, array<int, string>>

@@ -7,30 +7,23 @@ use TypeID\Development\ArchitectureChecker;
 require_once __DIR__.'/ArchitectureChecker.php';
 
 /**
- * Architecture check: enforces the supported surface documented in the README.
+ * Enforces the public API documented in the README.
  *
- * TypeID is the only supported entry-point module. Base32 is internal: PHP
- * cannot make it package-private, so this check enforces in this repository
- * what the compatibility policy promises to consumers.
+ * TypeID is the only public entry point. PHP cannot hide the Base32 class from
+ * Composer, so this check prevents repository code from depending on it.
+ * External consumers can still call the class, but receive no compatibility
+ * guarantee.
  *
- * It cannot stop an external consumer from calling an autoloadable class. That
- * outer limit is a documented promise, not a mechanism.
- *
- * Run: composer test:architecture
+ * Run with composer test:architecture.
  */
 const INTERNAL = ['Base32'];
 
-/**
- * Production files permitted to reference each internal module.
- *
- * @see docs/adr/0001-validation-and-codec-ownership.md — Base32 now depends on
- *      nothing, and TypeID is its only production caller.
- */
+/** Production files allowed to reference each internal class. */
 const PRODUCTION_ALLOW = [
     'src/TypeID.php' => ['Base32'],
 ];
 
-/** Test directories permitted to reference each internal module. */
+/** Test directories allowed to reference each internal class. */
 const TEST_ALLOW = [
     'tests/Codec/' => ['Base32'],
 ];
@@ -65,7 +58,7 @@ $filesIn = static function (string $dir) use ($root): array {
     return $found;
 };
 
-/** @return list<string> Internal modules referenced by this file. */
+/** @return list<string> Internal classes referenced by this file. */
 $referencesIn = static function (string $relative) use ($root): array {
     $source = file_get_contents($root.'/'.$relative);
 
@@ -76,9 +69,8 @@ $referencesIn = static function (string $relative) use ($root): array {
     return ArchitectureChecker::internalReferences($source, INTERNAL);
 };
 
-// ── Production code ────────────────────────────────────────────────────────
 foreach ($filesIn('src') as $file) {
-    // A module referencing itself is not a dependency.
+    // A class may reference itself.
     $self = basename($file, '.php');
     $allowed = PRODUCTION_ALLOW[$file] ?? [];
 
@@ -91,7 +83,6 @@ foreach ($filesIn('src') as $file) {
     }
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────
 foreach ($filesIn('tests') as $file) {
     $allowed = [];
 
@@ -110,9 +101,7 @@ foreach ($filesIn('tests') as $file) {
     }
 }
 
-// ── Public documentation ───────────────────────────────────────────────────
-// Naming an internal symbol to mark it unsupported is allowed. Showing it as a
-// callable entry point is not.
+// Documentation may name an internal class, but must not call it.
 foreach (['README.md', 'CONTEXT.md'] as $doc) {
     $path = $root.'/'.$doc;
 
@@ -129,7 +118,6 @@ foreach (['README.md', 'CONTEXT.md'] as $doc) {
     }
 }
 
-// ── Report ─────────────────────────────────────────────────────────────────
 if ($violations !== []) {
     fwrite(STDERR, "Architecture check failed:\n\n");
 

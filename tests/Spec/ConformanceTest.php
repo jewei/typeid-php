@@ -5,12 +5,7 @@ declare(strict_types=1);
 use TypeID\TypeID;
 
 /**
- * Normative requirements of TypeID specification 0.3.0 that the vendored
- * vectors do not cover on their own.
- *
- * The vectors check 9 valid and 21 invalid strings. The rules below are stated
- * in spec/README.md as MUST/SHOULD requirements, or recommended by the vector
- * files themselves, and would otherwise regress unnoticed.
+ * Tests specification 0.3.0 requirements absent from the vendored cases.
  *
  * @see spec/README.md
  */
@@ -19,7 +14,7 @@ use TypeID\TypeID;
  * "It's recommended that implementations generate thousands of random ids
  * during testing, and verify that after decoding and re-encoding the id, the
  * result is the same as the original."
- *   — spec/valid.yml
+ * Source: spec/valid.yml
  */
 test('a random id survives every round trip: string, UUID and bytes', function (): void {
     $failure = null;
@@ -105,11 +100,7 @@ test('the leading character never exceeds 7 for any 128-bit value', function (st
     expect($suffix[0])->toMatch('/\A[0-7]\z/');
 })->with(['00', 'ff', '80', '7f', 'aa', '55', '0f', 'f0']);
 
-/**
- * The alphabet, derived through the public seam rather than asserted as a
- * constant: encoding the values 0..31 into the final 5-bit group must yield
- * the spec's table in order.
- */
+/** Encoding values 0 through 31 in the final group yields the spec alphabet. */
 test('the base32 alphabet matches the specification table', function (): void {
     $alphabet = '';
 
@@ -135,10 +126,7 @@ test('canonical strings observe the specified length bounds', function (): void 
         ->and(TypeID::fromString($longest)->prefix)->toBe(str_repeat('a', 63));
 });
 
-/**
- * Ramsey's default UUIDv7 generator maintains monotonic state within one PHP
- * process. TypeID does not promise this ordering across processes or hosts.
- */
+/** Ramsey orders successive UUIDv7 values within one PHP process. */
 test('default Ramsey generation is strictly increasing within one process', function (): void {
     $previous = '';
     $failure = null;

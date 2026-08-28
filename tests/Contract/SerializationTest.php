@@ -30,10 +30,7 @@ test('native serialization round trips a bare TypeID', function (): void {
     expect(unserialize(serialize($typeId))->equals($typeId))->toBeTrue();
 });
 
-/**
- * Tampering with a serialized payload must not produce an invalid TypeID.
- * This is a contract of TypeID's own hydration path, not of any helper.
- */
+/** TypeID rejects invalid fields during unserialization. */
 test('unserialization rejects a tampered prefix', function (): void {
     $serialized = serialize(new TypeID('user', '01jsnsf2g7e2saxdjvz3j6tc3x'));
     $corrupt = str_replace('s:4:"user";', 's:7:"INVALID";', $serialized);

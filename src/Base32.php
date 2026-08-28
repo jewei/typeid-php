@@ -7,11 +7,11 @@ namespace TypeID;
 use TypeID\Exception\ValidationException;
 
 /**
- * Crockford base32 encoder/decoder for TypeID suffixes.
+ * Base32 encoder and decoder for TypeID suffixes.
  *
- * Bit layout — 16 UUID bytes (128 bits) → 26 × 5-bit chars:
+ * Bit layout: 16 UUID bytes become 26 groups of 5 bits.
  *
- *   c[ 0] = b[0]>>5                         bits 127-125  (top 2 always 0 → max char is '7')
+ *   c[ 0] = b[0]>>5                         bits 127-125  (top 2 are zero; max is '7')
  *   c[ 1] = b[0]&0x1F                       bits 124-120
  *   c[ 2] = b[1]>>3                         bits 119-115
  *   c[ 3] = (b[1]&0x07)<<2 | b[2]>>6        bits 114-110
@@ -21,19 +21,13 @@ use TypeID\Exception\ValidationException;
  *   c[ 7] = (b[4]>>2)&0x1F                  bits  94- 90
  *   c[ 8] = (b[4]&0x03)<<3 | b[5]>>5        bits  89- 85
  *   c[ 9] = b[5]&0x1F                       bits  84- 80
- *   … chars 2-25 repeat an 8-char / 5-byte pattern three times.
+ *   Characters 2 to 25 repeat an 8-character, 5-byte pattern three times.
  *
- * That repeat could fold into a 5-byte loop. It stays unrolled on purpose:
- * encode/decode sit on the hot path of every TypeID created or parsed, and a
- * straight-line expression avoids 26 iterations of loop and index arithmetic.
- * Change it only with a benchmark that shows the loop is no slower.
+ * The expressions stay unrolled because every TypeID creation and parse uses
+ * them. Replace them with a loop only if a benchmark shows no slowdown.
  *
- * This module handles bytes, never UUID text: parsing and formatting UUID
- * strings belongs to TypeID. It does own its domain validation — alphabet,
- * length, and the 128-bit overflow rule — because a decoder that accepts a
- * non-canonical suffix is wrong regardless of who called it.
- *
- * @see docs/adr/0001-validation-and-codec-ownership.md
+ * This class handles bytes, not UUID text. It validates suffix length,
+ * alphabet, and the 128-bit limit before decoding.
  *
  * @internal Use TypeID for the stable public API.
  */
@@ -42,7 +36,7 @@ final class Base32
     private const string ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 
     /**
-     * A canonical suffix: 26 symbols from the strict alphabet, decoding to
+     * A canonical suffix has 26 symbols from the strict alphabet and decodes to
      * exactly 128 bits. 26 base32 characters hold 130 bits, so the leading
      * symbol must be '7' or lower or the value would overflow a UUID.
      */
@@ -60,7 +54,7 @@ final class Base32
 
     private function __construct() {}
 
-    /** True when $suffix is a canonical 26-character suffix. */
+    /** Check whether a suffix is canonical. */
     public static function isCanonicalSuffix(string $suffix): bool
     {
         return strlen($suffix) === 26
@@ -84,7 +78,7 @@ final class Base32
             throw ValidationException::unreadableBytes();
         }
 
-        // PHPStan cannot infer unpack() values from its dynamic format string.
+        // PHPStan types unpack() values as mixed.
         /** @var array<int, int> $unpacked */
         $octets = array_values($unpacked);
 

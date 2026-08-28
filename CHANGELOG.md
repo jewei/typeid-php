@@ -14,7 +14,7 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `parseTypeID()`. It was marked `@internal` and documented as unsupported, but
   removal is observable: code that ignored the marker will fatal. Catch
   `ValidationException` from the relevant `TypeID` factory instead of asking a
-  predicate first. See [ADR-0001](docs/adr/0001-validation-and-codec-ownership.md).
+  predicate first.
 - **BREAKING** — `Base32::encode()` and `Base32::decode()`, which took and
   returned UUID *strings*. The codec is now byte-only. `Base32` was already
   `@internal`; use `TypeID::fromUuid()` and `TypeID::toUuid()`.
@@ -51,10 +51,6 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `CONTEXT.md` — the domain glossary, anchored to TypeID specification 0.3.0.
   Defines *canonical suffix* (so the 128-bit overflow rule has a name) and
   separates *nil UUID* from *zero TypeID*.
-- `docs/adr/` — [ADR-0001](docs/adr/0001-validation-and-codec-ownership.md) on
-  validation and codec ownership, and
-  [ADR-0002](docs/adr/0002-read-paths-keep-revalidating.md) recording a measured
-  decision *not* to remove redundant read-side validation.
 - `composer test:architecture` — enforces the supported-surface dependency
   allow-list in CI. PHP has no package-private visibility for top-level
   classes, so the boundary is policy plus a check rather than a language

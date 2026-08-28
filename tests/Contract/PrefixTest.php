@@ -6,10 +6,10 @@ use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 
 /**
- * The type prefix grammar, exercised through the supported seam.
+ * Tests the type prefix grammar through TypeID.
  *
- * Spec 0.3.0: at most 63 characters, lowercase [a-z_] only, must start and end
- * with a letter, may be empty, consecutive underscores allowed.
+ * Spec 0.3.0 allows an empty prefix or at most 63 lowercase letters and
+ * underscores. A non-empty prefix starts and ends with a letter.
  */
 test('accepts every valid type prefix', function (string $prefix): void {
     expect(TypeID::zero($prefix)->prefix)->toBe($prefix);

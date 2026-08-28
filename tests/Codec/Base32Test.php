@@ -6,16 +6,10 @@ use TypeID\Base32;
 use TypeID\Exception\ValidationException;
 
 /**
- * Bit-boundary diagnostics for the base32 codec.
+ * Tests Base32 directly so a failed bit group identifies its byte and bit.
+ * TypeID and the spec cases cover the remaining encoding behavior.
  *
- * This is the one test layer permitted to reach past the supported seam. It
- * exists because encode/decode is an unrolled 26-expression bit-shuffle: when a
- * single 5-bit group is wrong, a failure through TypeID reports only "this UUID
- * did not round trip", while these tests name the byte and bit at fault.
- *
- * Everything else about encoding is covered through TypeID and the spec vectors.
- *
- * @see spec/README.md — TypeID specification 0.3.0, base32 encoding
+ * @see spec/README.md TypeID specification 0.3.0, base32 encoding
  */
 test('every single set bit survives a round trip', function (): void {
     foreach (range(0, 127) as $bit) {
@@ -41,10 +35,7 @@ test('every single saturated byte survives a round trip', function (): void {
     }
 });
 
-/**
- * Chars 3, 5, 6, 8 and their repeats straddle byte boundaries, so they are the
- * groups an off-by-one shift corrupts first.
- */
+/** Characters 3, 5, 6, 8, and their repeats cross byte boundaries. */
 test('values straddling byte boundaries survive a round trip', function (string $hex): void {
     $raw = hex2bin($hex);
 
@@ -66,10 +57,7 @@ test('the encoded suffix is always 26 characters', function (string $hex): void 
     'mid' => str_repeat('80', 16),
 ]);
 
-/**
- * Two zero bits are prepended before the 128 are split into 26 groups of 5, so
- * the leading group can never exceed 7 regardless of input.
- */
+/** Two leading zero bits limit the first 5-bit group to 7. */
 test('the leading character never exceeds 7 for any input', function (): void {
     foreach (['00', 'ff', '80', '7f', 'aa', '55'] as $fill) {
         $encoded = Base32::encodeBytes(hex2bin(str_repeat($fill, 16)));
@@ -83,11 +71,7 @@ test('the boundary values encode to their documented suffixes', function (): voi
         ->and(Base32::encodeBytes(hex2bin(str_repeat('ff', 16))))->toBe('7zzzzzzzzzzzzzzzzzzzzzzzzz');
 });
 
-/**
- * The codec owns its own domain constraints: alphabet, length and canonicality.
- * Byte-only does not mean validation-free, and these guards are not the same as
- * TypeID re-validating a suffix it already established at construction.
- */
+/** The codec rejects invalid length, alphabet, and 128-bit range. */
 test('the codec rejects input outside its own domain', function (string $suffix): void {
     expect(fn () => Base32::decodeBytes($suffix))->toThrow(ValidationException::class);
 })->with([

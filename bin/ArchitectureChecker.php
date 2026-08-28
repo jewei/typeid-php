@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace TypeID\Development;
 
-/** Token-based source inspection for the repository's architecture policy. */
+/** Finds internal class references in PHP source. */
 final class ArchitectureChecker
 {
     /**
-     * Return internal module short names referenced by executable PHP tokens.
+     * Returns internal class short names used by executable PHP.
      *
-     * The policy reserves each internal class short name, so a qualified class
-     * from another namespace with the same short name is also rejected. The
-     * scanner recognizes imports, class operations, type declarations,
-     * attributes, and class constants. Comments, strings, functions, ordinary
-     * constants, and member names do not count as module references.
+     * A matching short name is rejected in any namespace. Imports, class
+     * operations, type declarations, attributes, and class constants count as
+     * references. Comments, strings, functions, ordinary constants, and member
+     * names do not.
      *
      * @param  list<string>  $internalModules
      * @return list<string>

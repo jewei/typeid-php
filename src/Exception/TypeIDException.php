@@ -6,5 +6,5 @@ namespace TypeID\Exception;
 
 use Throwable;
 
-/** Marker interface implemented by all exceptions exposed by this package. */
+/** Implemented by every public package exception. */
 interface TypeIDException extends Throwable {}

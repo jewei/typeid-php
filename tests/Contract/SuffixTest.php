@@ -6,10 +6,10 @@ use TypeID\Exception\ValidationException;
 use TypeID\TypeID;
 
 /**
- * Suffix canonicality, exercised through the supported seam.
+ * Tests suffix rules through TypeID.
  *
- * Spec 0.3.0: exactly 26 characters from the strict alphabet, decoding to
- * exactly 128 bits — so the leading character must be '7' or lower.
+ * Spec 0.3.0 requires 26 characters from the strict alphabet. The first
+ * character cannot exceed '7' because the suffix encodes 128 bits.
  */
 test('accepts a canonical suffix', function (string $suffix): void {
     expect((new TypeID('user', $suffix))->suffix)->toBe($suffix);

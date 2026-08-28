@@ -13,20 +13,19 @@ use TypeID\Exception\GenerationException;
 use TypeID\Exception\ValidationException;
 
 /**
- * A TypeID value. Values created by generate() are type-safe and globally
- * unique. Values with the same type prefix are K-sortable by their UUIDv7
- * millisecond timestamp.
+ * A TypeID value. Values from generate() are globally unique. Values with the
+ * same type prefix are K-sortable by their UUIDv7 millisecond timestamp.
  *
- * Format: {prefix}_{suffix}  e.g. user_01jsnsf2g7e2saxdjvz3j6tc3x
+ * Format: {prefix}_{suffix}, for example user_01jsnsf2g7e2saxdjvz3j6tc3x
  *
- * - prefix  → lowercase entity type label (0–63 chars, e.g. 'user', 'order')
- * - suffix  → 26-char Crockford base32-encoded UUID
+ * The type prefix contains up to 63 lowercase ASCII letters and internal
+ * underscores. The suffix is a 26-character base32 encoding of a UUID.
  *
  * @see https://github.com/jetify-com/typeid
  */
 final class TypeID implements JsonSerializable, Stringable
 {
-    /** Crockford base32 of the nil UUID — useful as a sentinel/zero value. */
+    /** Base32 encoding of the nil UUID. */
     public const string ZERO_SUFFIX = '00000000000000000000000000';
 
     /**
@@ -73,12 +72,7 @@ final class TypeID implements JsonSerializable, Stringable
             throw ValidationException::malformedPayload();
         }
 
-        // Validate before assigning, so a rejected payload leaves the object
-        // uninitialised rather than half-populated.
-        //
-        // No test pins this ordering, and none can: PHP discards the object when
-        // __unserialize() throws, so assigning first is not observable from
-        // outside. It is kept as a defensive invariant, maintained by review.
+        // Validate both fields before assigning either one.
         self::assertValidPrefix($data['prefix']);
         self::assertValidSuffix($data['suffix']);
 
@@ -87,7 +81,7 @@ final class TypeID implements JsonSerializable, Stringable
     }
 
     /**
-     * Create a TypeID from any valid UUID string (v4, v7, nil, …).
+     * Create a TypeID from any valid UUID string, including v4, v7, and nil.
      * Uppercase hex is accepted and normalized to lowercase.
      *
      * @throws ValidationException If $uuid or $prefix fails validation.
@@ -98,7 +92,7 @@ final class TypeID implements JsonSerializable, Stringable
     }
 
     /**
-     * Create a TypeID from a prefix and raw 16-byte binary UUID.
+     * Create a TypeID from 16 raw UUID bytes.
      * Useful for round-tripping UUIDs stored as binary(16) in a database.
      *
      * @throws ValidationException If $bytes or $prefix fails validation.
@@ -110,8 +104,8 @@ final class TypeID implements JsonSerializable, Stringable
 
     /**
      * Parse a TypeID from its canonical string form.
-     * Accepts prefixed ('user_01jsnsf2g7…') and bare ('01jsnsf2g7…') forms.
-     * The last underscore is always the prefix/suffix delimiter.
+     * Accepts prefixed and bare forms.
+     * The last separator divides the type prefix from the suffix.
      *
      * @throws ValidationException If $value is malformed or fails spec validation.
      */
@@ -188,9 +182,8 @@ final class TypeID implements JsonSerializable, Stringable
      * Create the nil TypeID (all 128 UUID bits are zero).
      * Useful as a sentinel, placeholder, or default FK value.
      *
-     * This is not a generator: the nil UUID carries no version or variant bits,
-     * so the result is deliberately not a UUIDv7 and is not K-sortable. The
-     * TypeID spec lists the nil suffix among its valid vectors.
+     * The nil UUID has no version or variant bits. The result is not UUIDv7 or
+     * K-sortable. The TypeID spec includes the nil suffix as a valid case.
      *
      * @throws ValidationException If $prefix fails spec validation.
      */
@@ -205,7 +198,7 @@ final class TypeID implements JsonSerializable, Stringable
         return $this->prefix !== '' ? "{$this->prefix}_{$this->suffix}" : $this->suffix;
     }
 
-    /** Decode the suffix back to its canonical hyphenated UUID string (e.g. '01966b97-8a07-…'). */
+    /** Decode the suffix to a lowercase, hyphenated UUID string. */
     public function toUuid(): string
     {
         $hex = bin2hex($this->bytes());
@@ -219,7 +212,7 @@ final class TypeID implements JsonSerializable, Stringable
         );
     }
 
-    /** Decode the suffix to raw 16-byte binary — useful for binary(16) database columns. */
+    /** Decode the suffix to 16 raw UUID bytes. */
     public function bytes(): string
     {
         return Base32::decodeBytes($this->suffix);
@@ -231,19 +224,19 @@ final class TypeID implements JsonSerializable, Stringable
         return $this->suffix === self::ZERO_SUFFIX;
     }
 
-    /** True when this TypeID has a non-zero suffix (i.e. not the nil UUID). */
+    /** True when the suffix does not encode the nil UUID. */
     public function isNonZero(): bool
     {
         return ! $this->isZero();
     }
 
-    /** Value equality — two TypeIDs are equal only when prefix and suffix both match. */
+    /** Compare the type prefix and suffix. */
     public function equals(self $other): bool
     {
         return $this->prefix === $other->prefix && $this->suffix === $other->suffix;
     }
 
-    /** Enables native json_encode() support — serializes as the canonical string form. */
+    /** Return the canonical string for json_encode(). */
     #[Override]
     public function jsonSerialize(): string
     {
