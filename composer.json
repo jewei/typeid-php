@@ -26,6 +26,11 @@
             "TypeID\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "TypeID\\Tests\\Support\\": "tests/Support/"
+        }
+    },
     "scripts": {
         "test": [
             "@test:architecture",
@@ -33,12 +38,14 @@
             "@test:unit"
         ],
         "test:unit": "@php vendor/bin/pest",
+        "test:mutation": "@php vendor/bin/pest --mutate --parallel --class=\"TypeID\\Base32,TypeID\\TypeID,TypeID\\Exception\\ValidationException\"",
         "test:architecture": "@php tests/Tooling/check-architecture.php",
         "test:types": "@php vendor/bin/phpstan analyse --no-progress"
     },
     "scripts-descriptions": {
         "test": "Run the architecture check and the full test suite",
         "test:unit": "Run the test suite",
+        "test:mutation": "Mutation-test Base32, TypeID, and validation",
         "test:architecture": "Enforce the supported-surface dependency allow-list",
         "test:types": "Run PHPStan at maximum strictness against PHP 8.3"
     },

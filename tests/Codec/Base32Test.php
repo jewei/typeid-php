@@ -2,102 +2,130 @@
 
 declare(strict_types=1);
 
+use InvalidArgumentException;
 use TypeID\Base32;
 use TypeID\Exception\ValidationException;
+use TypeID\Tests\Support\ReferenceBase32;
 
 /**
- * Tests Base32 directly so a failed bit group identifies its byte and bit.
- * TypeID and the spec cases cover the remaining encoding behavior.
+ * Compare each codec direction with a literal implementation of the spec.
+ * This prevents matching masks or shifts in the optimized encoder and decoder
+ * from hiding each other's defects.
  *
  * @see spec/README.md TypeID specification 0.3.0, base32 encoding
  */
-test('every single set bit survives a round trip', function (): void {
+$expectCodecToMatchReference = function (string $bytes, string $case): void {
+    $optimized = Base32::encodeBytes($bytes);
+    $reference = ReferenceBase32::encodeBytes($bytes);
+
+    expect($optimized)->toBe($reference, "{$case}: optimized encoding differs from the reference")
+        ->and(Base32::decodeBytes($reference))->toBe($bytes, "{$case}: optimized decoding differs from the reference")
+        ->and(ReferenceBase32::decodeBytes($optimized))->toBe($bytes, "{$case}: reference decoding differs from the input");
+};
+
+test('the optimized codec matches the reference for every single set bit', function () use ($expectCodecToMatchReference): void {
     foreach (range(0, 127) as $bit) {
         $bytes = array_fill(0, 16, 0);
         $bytes[intdiv($bit, 8)] = 1 << (7 - $bit % 8);
-        $raw = pack('C*', ...$bytes);
 
-        $decoded = Base32::decodeBytes(Base32::encodeBytes($raw));
-
-        expect(bin2hex($decoded))->toBe(bin2hex($raw), "bit {$bit} did not survive the round trip");
+        $expectCodecToMatchReference(pack('C*', ...$bytes), "single bit {$bit}");
     }
 });
 
-test('every single saturated byte survives a round trip', function (): void {
+test('the optimized codec matches the reference for every saturated byte position', function () use ($expectCodecToMatchReference): void {
     foreach (range(0, 15) as $index) {
         $bytes = array_fill(0, 16, 0);
         $bytes[$index] = 0xFF;
-        $raw = pack('C*', ...$bytes);
 
-        $decoded = Base32::decodeBytes(Base32::encodeBytes($raw));
-
-        expect(bin2hex($decoded))->toBe(bin2hex($raw), "byte {$index} did not survive the round trip");
+        $expectCodecToMatchReference(pack('C*', ...$bytes), "saturated byte {$index}");
     }
 });
 
-/** Characters 3, 5, 6, 8, and their repeats cross byte boundaries. */
-test('values straddling byte boundaries survive a round trip', function (string $hex): void {
-    $raw = hex2bin($hex);
+test('the optimized codec matches the reference at boundaries', function (string $hex) use ($expectCodecToMatchReference): void {
+    $bytes = hex2bin($hex);
 
-    expect(bin2hex(Base32::decodeBytes(Base32::encodeBytes($raw))))->toBe($hex);
-})->with([
-    'alternating 0x55' => str_repeat('55', 16),
-    'alternating 0xAA' => str_repeat('aa', 16),
-    'ascending' => '000102030405060708090a0b0c0d0e0f',
-    'descending' => 'f0e0d0c0b0a090807060504030201000',
-    'high nibbles' => str_repeat('f0', 16),
-    'low nibbles' => str_repeat('0f', 16),
-]);
-
-test('the encoded suffix is always 26 characters', function (string $hex): void {
-    expect(Base32::encodeBytes(hex2bin($hex)))->toHaveLength(26);
+    expect($bytes)->not->toBeFalse();
+    $expectCodecToMatchReference($bytes, "boundary {$hex}");
 })->with([
     'nil' => str_repeat('00', 16),
-    'max' => str_repeat('ff', 16),
-    'mid' => str_repeat('80', 16),
+    'one' => str_repeat('00', 15).'01',
+    'lower half maximum' => '7f'.str_repeat('ff', 15),
+    'upper half minimum' => '80'.str_repeat('00', 15),
+    'one below maximum' => str_repeat('ff', 15).'fe',
+    'maximum' => str_repeat('ff', 16),
+    'alternating 0x55' => str_repeat('55', 16),
+    'alternating 0xAA' => str_repeat('aa', 16),
+    'ascending bytes' => '000102030405060708090a0b0c0d0e0f',
+    'descending bytes' => 'f0e0d0c0b0a090807060504030201000',
 ]);
 
-/** Two leading zero bits limit the first 5-bit group to 7. */
-test('the leading character never exceeds 7 for any input', function (): void {
-    foreach (['00', 'ff', '80', '7f', 'aa', '55'] as $fill) {
-        $encoded = Base32::encodeBytes(hex2bin(str_repeat($fill, 16)));
-
-        expect($encoded[0])->toMatch('/\A[0-7]\z/');
+test('the optimized codec matches the reference for a deterministic hash corpus', function () use ($expectCodecToMatchReference): void {
+    foreach (range(0, 511) as $integer) {
+        $digest = hash('sha256', (string) $integer, true);
+        $expectCodecToMatchReference(substr($digest, 0, 16), "sha256({$integer})");
     }
 });
 
-test('the boundary values encode to their documented suffixes', function (): void {
-    expect(Base32::encodeBytes(hex2bin(str_repeat('00', 16))))->toBe('00000000000000000000000000')
-        ->and(Base32::encodeBytes(hex2bin(str_repeat('ff', 16))))->toBe('7zzzzzzzzzzzzzzzzzzzzzzzzz');
+test('the optimized codec and reference match the official vectors', function () use ($expectCodecToMatchReference): void {
+    foreach (validSpecVectors() as $vector) {
+        $name = $vector['name'] ?? null;
+        $typeid = $vector['typeid'] ?? null;
+        $uuid = $vector['uuid'] ?? null;
+
+        expect($name)->toBeString()
+            ->and($typeid)->toBeString()
+            ->and($uuid)->toBeString();
+
+        $separator = strrpos($typeid, '_');
+        $suffix = $separator === false ? $typeid : substr($typeid, $separator + 1);
+        $bytes = hex2bin(str_replace('-', '', $uuid));
+
+        expect($bytes)->not->toBeFalse()
+            ->and(ReferenceBase32::encodeBytes($bytes))->toBe($suffix, "official vector {$name}: reference encoding differs");
+
+        $expectCodecToMatchReference($bytes, "official vector {$name}");
+        expect(ReferenceBase32::decodeBytes($suffix))->toBe($bytes, "official vector {$name}: reference decoding differs");
+    }
 });
 
-/** The codec rejects invalid length, alphabet, and 128-bit range. */
-test('the codec rejects input outside its own domain', function (string $suffix): void {
-    expect(fn () => Base32::decodeBytes($suffix))->toThrow(ValidationException::class);
-})->with([
-    'too short' => 'tooshort',
+test('the documented boundary values have fixed encodings', function (): void {
+    expect(Base32::encodeBytes(str_repeat("\0", 16)))->toBe('00000000000000000000000000')
+        ->and(Base32::encodeBytes(str_repeat("\xFF", 16)))->toBe('7zzzzzzzzzzzzzzzzzzzzzzzzz')
+        ->and(Base32::decodeBytes('00000000000000000000000001'))->toBe(str_repeat("\0", 15)."\x01")
+        ->and(Base32::decodeBytes('7zzzzzzzzzzzzzzzzzzzzzzzzz'))->toBe(str_repeat("\xFF", 16));
+});
+
+$invalidEncodedValues = [
+    'empty' => '',
     'one short' => str_repeat('0', 25),
     'one long' => str_repeat('0', 27),
-    'uppercase' => '01JSNSF2G7E2SAXDJVZ3J6TC3X',
-    'ambiguous letters' => '0Ijsnsf2g7e2saxdjvz3jltc3x',
-    'overflow' => '8zzzzzzzzzzzzzzzzzzzzzzzzz',
-    'hyphens' => 'ill3g4l-ch4r4ct3rs-in-b4s332',
-    'empty' => '',
-]);
+    'ambiguous i' => str_repeat('0', 25).'i',
+    'ambiguous l' => str_repeat('0', 25).'l',
+    'ambiguous o' => str_repeat('0', 25).'o',
+    'excluded u' => str_repeat('0', 25).'u',
+    'hyphen' => str_repeat('0', 25).'-',
+    'underscore' => str_repeat('0', 25).'_',
+    'space' => str_repeat('0', 25).' ',
+];
 
-test('the codec rejects byte strings that are not exactly 16 bytes', function (string $bytes): void {
+foreach (str_split('abcdefghjkmnpqrstvwxyz') as $letter) {
+    $invalidEncodedValues["uppercase {$letter}"] = str_repeat('0', 25).strtoupper($letter);
+}
+
+foreach (str_split('89abcdefghjkmnpqrstvwxyz') as $leading) {
+    $invalidEncodedValues["overflow {$leading}"] = $leading.str_repeat('0', 25);
+}
+
+test('the optimized decoder and reference reject values outside the encoded domain', function (string $encoded): void {
+    expect(fn () => Base32::decodeBytes($encoded))->toThrow(ValidationException::class);
+    expect(fn () => ReferenceBase32::decodeBytes($encoded))->toThrow(InvalidArgumentException::class);
+})->with($invalidEncodedValues);
+
+test('the optimized encoder and reference reject byte strings that are not exactly 16 bytes', function (string $bytes): void {
     expect(fn () => Base32::encodeBytes($bytes))->toThrow(ValidationException::class);
+    expect(fn () => ReferenceBase32::encodeBytes($bytes))->toThrow(InvalidArgumentException::class);
 })->with([
     'empty' => '',
     'fifteen' => str_repeat("\0", 15),
     'seventeen' => str_repeat("\0", 17),
-]);
-
-test('decoding is the exact inverse of encoding for the boundary suffixes', function (string $suffix): void {
-    expect(Base32::encodeBytes(Base32::decodeBytes($suffix)))->toBe($suffix);
-})->with([
-    'nil' => '00000000000000000000000000',
-    'max' => '7zzzzzzzzzzzzzzzzzzzzzzzzz',
-    'one below max' => '7zzzzzzzzzzzzzzzzzzzzzzzzy',
-    'single low bit' => '00000000000000000000000001',
 ]);
