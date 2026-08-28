@@ -2,6 +2,12 @@
 
 A PHP implementation of [TypeID](https://github.com/jetify-com/typeid): type-safe, K-sortable identifiers that pair a human-readable type label with a UUID. This glossary is anchored to **TypeID specification 0.3.0**, vendored at [`spec/README.md`](spec/README.md); where this package's language differs from the spec's, the difference is noted below.
 
+The vendored specification and its conformance vectors are copied verbatim from
+[`jetify-com/typeid`](https://github.com/jetify-com/typeid/tree/main/spec) and were last verified
+byte-identical to upstream `main` on 27 August 2026. `spec/valid.json` and `spec/invalid.json` are
+derivations of the `.yml` files, and carry the same 9 valid and 21 invalid cases. This package
+implements no deviation from the specification.
+
 ## Language
 
 ### The value and its parts

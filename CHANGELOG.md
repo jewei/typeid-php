@@ -63,6 +63,13 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
+- `tests/Spec/ConformanceTest.php` covers normative requirements the 30 vendored
+  vectors do not reach: the randomised round-trip property the specification
+  recommends (`id == encode(decode(id))`, 5000 ids), the MUST that `generate()`
+  yield UUIDv7 version and variant bits, the 26–90 character length bounds, the
+  maximum suffix mapping to the maximum 128-bit UUID, and the base32 alphabet
+  derived through the public seam. Previously the only randomised test asserted
+  K-sortability, not the round-trip property.
 - Tests are reorganised into three layers: `tests/Contract/` (through `TypeID`
   only), `tests/Spec/` (vendored conformance vectors), and `tests/Codec/` (the
   single deliberate exception, for bit-boundary diagnostics). 34 test call
